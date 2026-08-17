@@ -45,6 +45,7 @@ import * as ToolPwsh from '@deepseek-ai/dsh-tool-pwsh'
 import * as ToolBashPersistent from '@deepseek-ai/dsh-tool-bash-persistent'
 import CordisHostRunner from '@deepseek-ai/dsh-cordis-host-runner'
 import * as ToolCordis from '@deepseek-ai/dsh-tool-cordis'
+import * as ToolAntigravity from '@deepseek-ai/dsh-tool-antigravity'
 import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
 import * as ToolFsSearch from '@deepseek-ai/dsh-tool-fs-search'
 import * as ToolStrReplaceEditor from '@deepseek-ai/dsh-tool-str-replace-editor'
@@ -266,6 +267,18 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     note:
       'Not in any shipped tree (a deliberate opt-in — dynamic package code reaches the real runtime, see .agents/notes/implemented/feature/2026-07-08-self-referential-cordis-toolset.md). The toolset injects `ctx.dynamicCordisRunner` from `@deepseek-ai/dsh-cordis-host-runner`, which owns the definition registry and the vm sandbox; a composition missing it never activates the tools. A running package may register ADDITIONAL model-visible tools until it is stopped, undefined, or DSH restarts; a full changed request header logs those tool-set changes.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-tool-antigravity',
+    dir: 'tool-antigravity',
+    source: 'packages/extensions/tool-antigravity/src/index.ts',
+    requires: ['ctx.tools', 'ctx.systemPrompt'],
+    writes: ['tool/call', 'tool/result'],
+    async mount(ctx) {
+      await ctx.plugin(ToolAntigravity)
+    },
+    note:
+      'The antigravity tools (antigravity_run, antigravity_models, antigravity_agents) provide access to Gemini models and agents via the Antigravity CLI.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-bash-persistent',

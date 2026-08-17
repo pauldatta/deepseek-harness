@@ -225,6 +225,9 @@
 - id: tool-ask-user
   name: '@deepseek-ai/dsh-tool-ask-user'
 
+- id: tool-antigravity
+  name: '@deepseek-ai/dsh-tool-antigravity'
+
 - id: tool-todo
   name: '@deepseek-ai/dsh-tool-todo'
   config:

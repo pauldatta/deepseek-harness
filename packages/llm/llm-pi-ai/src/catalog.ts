@@ -111,6 +111,146 @@ const THINKING_FORMAT_GATE: Record<PiAiThinkingFormat, true> = {
 /** Reasoning-dispatch wire formats a profile may name, most-reached first. */
 export const SUPPORTED_THINKING_FORMATS = Object.keys(THINKING_FORMAT_GATE) as readonly PiAiThinkingFormat[]
 
+/** Default catalog models for Google / Gemini / Vertex AI if not provided by pi-ai builtins. */
+const BUILTIN_GEMINI_MODELS: readonly Model<Api>[] = [
+  {
+    id: 'gemini-3.7-flash',
+    name: 'Gemini 3.7 Flash',
+    api: 'openai-completions',
+    provider: 'google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    input: ['text', 'image'],
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: 'low',
+      low: 'low',
+      medium: 'medium',
+      high: 'high',
+      xhigh: 'high',
+      max: 'high',
+    },
+    compat: {
+      thinkingFormat: 'openai',
+      supportsReasoningEffort: true,
+    },
+    cost: NO_COST,
+  },
+  {
+    id: 'gemini-3.7-flash-001',
+    name: 'Gemini 3.7 Flash (Pinned 001)',
+    api: 'openai-completions',
+    provider: 'google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    input: ['text', 'image'],
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: 'low',
+      low: 'low',
+      medium: 'medium',
+      high: 'high',
+      xhigh: 'high',
+      max: 'high',
+    },
+    compat: {
+      thinkingFormat: 'openai',
+      supportsReasoningEffort: true,
+    },
+    cost: NO_COST,
+  },
+  {
+    id: 'gemini-3.5-flash',
+    name: 'Gemini 3.5 Flash',
+    api: 'openai-completions',
+    provider: 'google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    input: ['text', 'image'],
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: 'low',
+      low: 'low',
+      medium: 'medium',
+      high: 'high',
+      xhigh: 'high',
+      max: 'high',
+    },
+    compat: {
+      thinkingFormat: 'openai',
+      supportsReasoningEffort: true,
+    },
+    cost: NO_COST,
+  },
+  {
+    id: 'gemini-3.5-flash-lite',
+    name: 'Gemini 3.5 Flash-Lite',
+    api: 'openai-completions',
+    provider: 'google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    input: ['text', 'image'],
+    reasoning: false,
+    cost: NO_COST,
+  },
+  {
+    id: 'gemini-3.1-pro-preview',
+    name: 'Gemini 3.1 Pro (Preview)',
+    api: 'openai-completions',
+    provider: 'google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    contextWindow: 2_097_152,
+    maxTokens: 65_536,
+    input: ['text', 'image'],
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: 'low',
+      low: 'low',
+      medium: 'medium',
+      high: 'high',
+      xhigh: 'high',
+      max: 'high',
+    },
+    compat: {
+      thinkingFormat: 'openai',
+      supportsReasoningEffort: true,
+    },
+    cost: NO_COST,
+  },
+  {
+    id: 'gemini-3.1-flash',
+    name: 'Gemini 3.1 Flash',
+    api: 'openai-completions',
+    provider: 'google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    input: ['text', 'image'],
+    reasoning: false,
+    cost: NO_COST,
+  },
+  {
+    id: 'gemini-3.1-flash-lite',
+    name: 'Gemini 3.1 Flash-Lite',
+    api: 'openai-completions',
+    provider: 'google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    input: ['text', 'image'],
+    reasoning: false,
+    cost: NO_COST,
+  },
+]
+
 let providerIndex: Map<string, Provider> | undefined
 
 /**
@@ -138,7 +278,12 @@ export function catalogProvider(provider: string): Provider | undefined {
  * @returns the catalog provider ids.
  */
 export function catalogProviderIds(): readonly string[] {
-  return getBuiltinProviders()
+  const ids = new Set<string>(getBuiltinProviders())
+  ids.add('google')
+  ids.add('gemini')
+  ids.add('google-vertex')
+  ids.add('vertex')
+  return [...ids]
 }
 
 /**
@@ -158,6 +303,15 @@ export function catalogProviderIds(): readonly string[] {
  *   pi-ai does not ship, which the caller answers for separately.
  */
 export function catalogProviderTakesApiKey(provider: string): boolean {
+  if (
+    provider === 'google' ||
+    provider === 'gemini' ||
+    provider === 'google-vertex' ||
+    provider === 'vertex' ||
+    provider === 'google-ai'
+  ) {
+    return true
+  }
   return catalogProvider(provider)?.auth.apiKey !== undefined
 }
 
@@ -167,6 +321,21 @@ export function catalogProviderTakesApiKey(provider: string): boolean {
  * @returns catalog models by id; empty for a route pi-ai does not ship.
  */
 export function catalogModels(provider: string): Map<string, Model<Api>> {
+  if (
+    provider === 'google' ||
+    provider === 'gemini' ||
+    provider === 'google-ai' ||
+    provider === 'google-vertex' ||
+    provider === 'vertex' ||
+    provider === 'vertex-ai'
+  ) {
+    const geminiMap = new Map(BUILTIN_GEMINI_MODELS.map(model => [model.id, { ...model, provider }]))
+    if (catalogProviders().has(provider)) {
+      const builtin = getBuiltinModels(provider as BuiltinProvider) as Model<Api>[]
+      for (const m of builtin) geminiMap.set(m.id, m)
+    }
+    return geminiMap
+  }
   if (!catalogProviders().has(provider)) return new Map()
   const models = getBuiltinModels(provider as BuiltinProvider) as Model<Api>[]
   return new Map(models.map(model => [model.id, model]))

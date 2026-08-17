@@ -63,8 +63,8 @@
     - id: agent-default-model
       name: '@deepseek-ai/dsh-agent-default-model'
       config:
-        provider: deepseek-official
-        model: deepseek-v4-flash
+        provider: google
+        model: gemini-3.7-flash
 
     - id: jobs
       name: '@deepseek-ai/dsh-jobs-local'
@@ -85,15 +85,78 @@
     - id: credentials
       name: '@deepseek-ai/dsh-credentials-local'
 
-    # The pi-ai multi-provider twin, mounted dormant: zero routes (and no extra
-    # models in the picker) until a `llm-pi-ai:` settings section supplies provider
-    # profiles — then those routes register live, keys resolving per request
-    # through their apiKeyEnv references, and drop again when the section empties.
-    # Supplying those profiles is exactly what the web Models page does. Which
-    # adapters exist is composition; which providers run is the user's settings
-    # document.
+    # Antigravity CLI (agy) plugin for Gemini models and agent workflows
+    - id: tool-antigravity
+      name: '@deepseek-ai/dsh-tool-antigravity'
+
+    # The pi-ai multi-provider twin configured with Google Gemini and Vertex AI
     - id: llm-pi-ai
       name: '@deepseek-ai/dsh-llm-pi-ai'
+      config:
+        providers:
+          google:
+            displayName: Google Gemini
+            apiKeyEnv: GEMINI_API_KEY
+            models:
+              - id: gemini-3.7-flash
+                name: Gemini 3.7 Flash
+                contextWindow: 1048576
+                maxTokens: 65536
+                reasoningEfforts:
+                  off: null
+                  low: low
+                  medium: medium
+                  high: high
+              - id: gemini-3.5-flash
+                name: Gemini 3.5 Flash
+                contextWindow: 1048576
+                maxTokens: 65536
+                reasoningEfforts:
+                  off: null
+                  low: low
+                  medium: medium
+                  high: high
+              - id: gemini-3.1-pro-preview
+                name: Gemini 3.1 Pro (Preview)
+                contextWindow: 2097152
+                maxTokens: 65536
+                reasoningEfforts:
+                  off: null
+                  low: low
+                  medium: medium
+                  high: high
+          google-vertex:
+            displayName: Google Cloud Vertex AI
+            apiKeyEnv: VERTEX_API_KEY
+            location: global
+            models:
+              - id: gemini-3.7-flash
+                name: Gemini 3.7 Flash (Vertex)
+                contextWindow: 1048576
+                maxTokens: 65536
+                reasoningEfforts:
+                  off: null
+                  low: low
+                  medium: medium
+                  high: high
+              - id: gemini-3.5-flash
+                name: Gemini 3.5 Flash (Vertex)
+                contextWindow: 1048576
+                maxTokens: 65536
+                reasoningEfforts:
+                  off: null
+                  low: low
+                  medium: medium
+                  high: high
+              - id: gemini-3.1-pro-preview
+                name: Gemini 3.1 Pro (Preview - Vertex)
+                contextWindow: 2097152
+                maxTokens: 65536
+                reasoningEfforts:
+                  off: null
+                  low: low
+                  medium: medium
+                  high: high
 
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -331,6 +394,21 @@
     # Optional direct-child return channel; absent from roots and one-shot agents.
     - id: tool-subagent-report
       name: '@deepseek-ai/dsh-tool-subagent-report'
+
+    # Antigravity CLI subagent provider and tool suite
+    - id: subagent-antigravity-cli
+      name: '@deepseek-ai/dsh-subagent-antigravity-cli'
+      config:
+        defaultModel: gemini-3.7-flash
+        gcpLocation: global
+
+    - id: tool-subagent-antigravity
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: antigravity-cli
+        toolName: subagent_antigravity
+        enableRunInBackground: false
+        maxDepth: provider-managed
 
     - id: workflow-worker-thread
       name: '@deepseek-ai/dsh-workflow-worker-thread'
