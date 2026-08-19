@@ -7,7 +7,9 @@
  */
 
 import { Worker } from 'node:worker_threads'
+import { existsSync } from 'node:fs'
 import { stripTypeScriptTypes } from 'node:module'
+import ts from 'typescript'
 import type { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
@@ -102,8 +104,22 @@ interface LiveRun {
  * `import.meta.url` with a query string; relative resolution drops it. Worker
  * receives a filesystem string so pkg's VFS Worker hook can resolve it.
  */
-/* v8 ignore next -- the './worker.cjs' arm is the built-lib world, unreachable unbuilt by construction; the built-lib e2e pins it. */
-const WORKER_PATH = fileURLToPath(new URL(new URL(import.meta.url).pathname.endsWith('.ts') ? './worker.ts' : './worker.cjs', import.meta.url))
+function resolveWorkerPath(): string {
+  const isTs = new URL(import.meta.url).pathname.endsWith('.ts')
+  if (isTs) {
+    try {
+      stripTypeScriptTypes('const x = 1')
+      return fileURLToPath(new URL('./worker.ts', import.meta.url))
+    } catch {
+      const cjsSibling = fileURLToPath(new URL('../lib/worker.cjs', import.meta.url))
+      if (existsSync(cjsSibling)) return cjsSibling
+      return fileURLToPath(new URL('./worker.cjs', import.meta.url))
+    }
+  }
+  return fileURLToPath(new URL('./worker.cjs', import.meta.url))
+}
+
+const WORKER_PATH = resolveWorkerPath()
 
 /** Render an unknown thrown value as a message, `Error` or not. */
 function messageOf(error: unknown): string {
@@ -299,8 +315,27 @@ export class WorkerThreadCodeRuntime extends CodeRuntime {
 
     let code: string
     try {
-      const stripped = stripTypeScriptTypes(STRIP_WRAP.prefix + request.program + STRIP_WRAP.suffix)
-      code = stripped.slice(STRIP_WRAP.prefix.length, stripped.length - STRIP_WRAP.suffix.length)
+      try {
+        const stripped = stripTypeScriptTypes(STRIP_WRAP.prefix + request.program + STRIP_WRAP.suffix)
+        code = stripped.slice(STRIP_WRAP.prefix.length, stripped.length - STRIP_WRAP.suffix.length)
+      } catch (err: unknown) {
+        if ((err as { code?: string })?.code === 'ERR_NO_TYPESCRIPT') {
+          if (/\b(enum|namespace)\s+[A-Za-z0-9_$]/.test(request.program)) {
+            throw new Error('Type-stripping does not support non-erasable TypeScript syntax (enum/namespace)')
+          }
+          const full = STRIP_WRAP.prefix + request.program + STRIP_WRAP.suffix
+          const out = ts.transpileModule(full, {
+            compilerOptions: {
+              target: ts.ScriptTarget.ESNext,
+              module: ts.ModuleKind.ESNext,
+            },
+          })
+          const transpiled = out.outputText.replace(/^\s*["']use strict["'];?\s*/, '')
+          code = transpiled.replace(/^\s*async function __dsh_program__\(\)\s*\{\s*\n?/, '').replace(/\n?\}\s*$/, '')
+        } else {
+          throw err
+        }
+      }
     } catch (error: unknown) {
       // A program that does not survive the type-strip (syntax error,
       // non-erasable syntax like `enum`) is a program failure, reported the
@@ -525,6 +560,7 @@ export class WorkerThreadCodeRuntime extends CodeRuntime {
         onDone(message)
       })
       worker.on('error', (error: Error) => {
+
         finish(() => output.failure([...logs, ...strayLogs], { kind: 'worker-exit', message: `worker error: ${error.message}` }))
       })
       worker.on('exit', (exitCode: number) => {

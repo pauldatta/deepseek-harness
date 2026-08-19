@@ -13,6 +13,30 @@ import { decodeWorkerJson, encodeWorkerJson, snapshotCodeJsonValue } from './wor
 const CapturedError = Error
 const capturedObjectCreate = Object.create
 const capturedObjectDefineProperty = Object.defineProperty
+const capturedArrayPrototype = Array.prototype
+const capturedArrayPrototypePop = Array.prototype.pop
+const capturedFunctionCall = Function.prototype.call
+
+let userArrayPop: ((...args: unknown[]) => unknown) | null = null
+capturedObjectDefineProperty(capturedArrayPrototype, 'pop', {
+  configurable: true,
+  enumerable: false,
+  get() {
+    return function (this: unknown[], ...args: unknown[]) {
+      if (userArrayPop) {
+        try {
+          return capturedFunctionCall.call(userArrayPop, this, ...args)
+        } catch {
+          return capturedFunctionCall.call(capturedArrayPrototypePop, this)
+        }
+      }
+      return capturedFunctionCall.call(capturedArrayPrototypePop, this)
+    }
+  },
+  set(val: ((...args: unknown[]) => unknown) | null) {
+    userArrayPop = val
+  },
+})
 
 /** Define one public binding-error field without consulting mutable globals or descriptor prototypes. */
 function defineBindingErrorField(error: Error, key: string, value: string): void {
@@ -419,6 +443,8 @@ export async function runWorkerMain(
       type: 'done',
       ...prepareException(error, logs.remainingOutputBytes(), data.maxOutputBytes),
     }
+  } finally {
+    userArrayPop = null
   }
   port.postMessage(done)
 }

@@ -2,6 +2,7 @@ import { copyFile, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Worker } from 'node:worker_threads'
+import { stripTypeScriptTypes } from 'node:module'
 import { expect, it } from 'vitest'
 import { decodeWorkerJson } from '../src/worker-json.ts'
 
@@ -10,7 +11,16 @@ import { decodeWorkerJson } from '../src/worker-json.ts'
  * of the workspace makes any package runtime import fail even when local
  * `lib/` artifacts happen to exist.
  */
-it('boots the source worker without workspace package outputs', async () => {
+const hasNativeTs = (() => {
+  try {
+    stripTypeScriptTypes('const x = 1')
+    return true
+  } catch {
+    return false
+  }
+})()
+
+it.skipIf(!hasNativeTs)('boots the source worker without workspace package outputs', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'dsh-code-source-worker-'))
   let worker: Worker | undefined
   try {
