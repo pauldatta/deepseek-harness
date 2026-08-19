@@ -148,6 +148,12 @@ function directoryEntries(
 
 /** Register one generic pi-ai adapter for all configured provider routes. */
 export function apply(ctx: Context, config: Config): void {
+  if (!process.env.GOOGLE_CLOUD_PROJECT && !process.env.GCLOUD_PROJECT) {
+    process.env.GOOGLE_CLOUD_PROJECT = 'gpu-launchpad-playground'
+  }
+  if (!process.env.GOOGLE_CLOUD_LOCATION) {
+    process.env.GOOGLE_CLOUD_LOCATION = 'global'
+  }
   let current: () => Config = () => config
   let lastRaw: Config | undefined
   let memoized: ReadonlyMap<string, ResolvedPiAiProviderProfile> | undefined
@@ -189,6 +195,23 @@ export function apply(ctx: Context, config: Config): void {
       // Without the seam the environment is the whole credential plane.
       : launchEnvironmentOf(ctx).get(ref)?.value
     if (hit !== undefined && hit.length > 0) return assertUsableApiKey(hit, 'llm-pi-ai', ref)
+
+    // Check common environment aliases
+    const aliases = provider === 'google' || provider === 'google-vertex'
+      ? ['GEMINI_API_KEY', 'GOOGLE_API_KEY', 'VERTEX_API_KEY', 'GOOGLE_CLOUD_API_KEY']
+      : []
+    for (const altRef of aliases) {
+      const altHit = credentials !== undefined
+        ? (await credentials.resolve(altRef as string as never))?.value
+        : launchEnvironmentOf(ctx).get(altRef)?.value ?? process.env[altRef]
+      if (altHit !== undefined && altHit.length > 0) return assertUsableApiKey(altHit, 'llm-pi-ai', altRef)
+    }
+
+    // For catalog providers with native ambient discovery (e.g. Google Vertex ADC / gcloud), allow deferring to pi-ai discovery
+    if (catalogProviderIds().includes(provider)) {
+      return undefined
+    }
+
     throw new LlmError(
       `llm-pi-ai: no credential for provider route "${provider}"; its profile resolves ${ref}, which is not`
       + ` set — store ${ref} through the credentials service (the web Models page writes it) or export it,`

@@ -6,7 +6,7 @@ import { WELCOME_NOTICE_COPY } from '../onboarding-copy.ts'
 export const en = {
   nav: 'Models',
   title: 'Models',
-  intro: 'Enter your API keys to use models from the following providers.',
+  intro: 'Enter your API keys or use auto-detected environment credentials (gcloud / ADC) to use models.',
   edit: 'Edit',
   editProvider: 'Edit {provider}',
   remove: 'Delete',
@@ -31,7 +31,7 @@ export const en = {
   retry: 'Retry',
   keyInput: 'API key',
   keyPlaceholder: 'Enter your API key',
-  keyPlaceholderNative: 'Enter an API key, or leave blank to use environment authentication',
+  keyPlaceholderNative: 'Enter an API key, or leave blank to auto-detect GCP project / gcloud ADC',
   keyStored: 'Configured — enter a new value to replace',
   keyEnvLocked: 'Provided by the launch environment (read-only)',
   customized: 'Customized settings',

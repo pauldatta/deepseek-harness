@@ -63,7 +63,7 @@
     - id: agent-default-model
       name: '@deepseek-ai/dsh-agent-default-model'
       config:
-        provider: google
+        provider: google-vertex
         model: gemini-3.7-flash
 
     - id: jobs
@@ -95,7 +95,7 @@
       config:
         providers:
           google:
-            displayName: Google Gemini
+            displayName: Google Gemini (API Key)
             apiKeyEnv: GEMINI_API_KEY
             models:
               - id: gemini-3.7-flash
@@ -107,17 +107,8 @@
                   low: low
                   medium: medium
                   high: high
-              - id: gemini-3.5-flash
-                name: Gemini 3.5 Flash
-                contextWindow: 1048576
-                maxTokens: 65536
-                reasoningEfforts:
-                  off: null
-                  low: low
-                  medium: medium
-                  high: high
               - id: gemini-3.1-pro-preview
-                name: Gemini 3.1 Pro (Preview)
+                name: Gemini 3.1 Pro
                 contextWindow: 2097152
                 maxTokens: 65536
                 reasoningEfforts:
@@ -126,22 +117,12 @@
                   medium: medium
                   high: high
           google-vertex:
-            displayName: Google Cloud Vertex AI
-            apiKeyEnv: VERTEX_API_KEY
+            displayName: Google Cloud Platform (Vertex AI / gcloud)
             project: gpu-launchpad-playground
             location: global
             models:
               - id: gemini-3.7-flash
-                name: Gemini 3.7 Flash (Vertex)
-                contextWindow: 1048576
-                maxTokens: 65536
-                reasoningEfforts:
-                  off: null
-                  low: low
-                  medium: medium
-                  high: high
-              - id: gemini-3.5-flash
-                name: Gemini 3.5 Flash (Vertex)
+                name: Gemini 3.7 Flash
                 contextWindow: 1048576
                 maxTokens: 65536
                 reasoningEfforts:
@@ -150,7 +131,7 @@
                   medium: medium
                   high: high
               - id: gemini-3.1-pro-preview
-                name: Gemini 3.1 Pro (Preview - Vertex)
+                name: Gemini 3.1 Pro
                 contextWindow: 2097152
                 maxTokens: 65536
                 reasoningEfforts:

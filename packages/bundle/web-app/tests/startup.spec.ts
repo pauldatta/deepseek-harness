@@ -18,7 +18,7 @@ import { apply, WEB_STARTUP_SERVICE, type WebStartupValues } from '../src/startu
 interface Observed {
   exits: number[]
   out: string
-  readerConfig?: unknown
+  readerConfig?: Record<string, unknown>
 }
 
 const disposers: (() => Promise<void>)[] = []

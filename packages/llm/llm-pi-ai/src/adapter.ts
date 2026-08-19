@@ -93,6 +93,19 @@ function profileOptions(
     ...profile.transport === undefined ? {} : { transport: profile.transport },
     ...profile.timeoutMs === undefined ? {} : { timeoutMs: profile.timeoutMs },
     ...profile.websocketConnectTimeoutMs === undefined ? {} : { websocketConnectTimeoutMs: profile.websocketConnectTimeoutMs },
+    onPayload: (params: unknown) => {
+      const p = params as { model?: unknown; config?: { thinkingConfig?: Record<string, unknown> } }
+      const modelId = typeof p?.model === 'string' ? p.model : ''
+      if (modelId.includes('3.7') && p?.config?.thinkingConfig) {
+        const tc = p.config.thinkingConfig
+        if (tc.thinkingLevel === 'MINIMAL' || tc.thinkingLevel === 'THINKING_LEVEL_MINIMAL') {
+          p.config.thinkingConfig = { thinkingBudget: 0 }
+        } else if (tc.thinkingLevel) {
+          p.config.thinkingConfig = { includeThoughts: true, thinkingBudget: -1 }
+        }
+      }
+      return params
+    },
     // The agent recovery layer owns visible attempts; one adapter call is one SDK attempt.
     maxRetries: 0,
   }

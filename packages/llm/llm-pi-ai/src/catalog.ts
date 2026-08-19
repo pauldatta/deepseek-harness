@@ -329,7 +329,23 @@ export function catalogModels(provider: string): Map<string, Model<Api>> {
     provider === 'vertex' ||
     provider === 'vertex-ai'
   ) {
-    const geminiMap = new Map(BUILTIN_GEMINI_MODELS.map(model => [model.id, { ...model, provider }]))
+    const isVertex = provider === 'google-vertex' || provider === 'vertex' || provider === 'vertex-ai'
+    const defaultApi = isVertex ? 'google-vertex' : 'google-generative-ai'
+    const defaultBaseUrl = isVertex
+      ? 'https://{location}-aiplatform.googleapis.com'
+      : 'https://generativelanguage.googleapis.com/v1beta'
+
+    const geminiMap = new Map<string, Model<Api>>()
+    for (const model of BUILTIN_GEMINI_MODELS) {
+      const { compat: _compat, ...rest } = model
+      geminiMap.set(model.id, {
+        ...rest,
+        provider,
+        api: defaultApi as Api,
+        baseUrl: defaultBaseUrl,
+        ...isVertex || model.compat === undefined ? {} : { compat: model.compat },
+      } as Model<Api>)
+    }
     if (catalogProviders().has(provider)) {
       const builtin = getBuiltinModels(provider as BuiltinProvider) as Model<Api>[]
       for (const m of builtin) geminiMap.set(m.id, m)
