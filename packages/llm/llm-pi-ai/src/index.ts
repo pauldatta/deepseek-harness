@@ -207,8 +207,8 @@ export function apply(ctx: Context, config: Config): void {
       if (altHit !== undefined && altHit.length > 0) return assertUsableApiKey(altHit, 'llm-pi-ai', altRef)
     }
 
-    // For catalog providers with native ambient discovery (e.g. Google Vertex ADC / gcloud), allow deferring to pi-ai discovery
-    if (catalogProviderIds().includes(provider)) {
+    // For Google Gemini / Vertex providers with ambient discovery (ADC / gcloud), allow deferring to ambient discovery without failing
+    if (provider === 'google' || provider === 'gemini' || provider === 'google-vertex' || provider === 'vertex') {
       return undefined
     }
 

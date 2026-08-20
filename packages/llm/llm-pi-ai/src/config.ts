@@ -138,6 +138,10 @@ export interface PiAiProviderProfile {
   streamIdleTimeoutMs?: number
   /** Provider-owned model-request retry policy; omission uses normal defaults. */
   retryPolicy?: RetryPolicyConfig
+  /** Google Cloud Project ID for Vertex AI requests. */
+  project?: string
+  /** Google Cloud Location / Region for Vertex AI requests. */
+  location?: string
 }
 
 /** Validated profile with its route stamped and every adapter-owned default resolved. */

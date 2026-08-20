@@ -97,6 +97,11 @@ export const en = {
   onboardingSave: 'Save and continue',
   onboardingSaving: 'Saving…',
   keyRequired: 'Enter an API key to continue.',
+  googleKeyInput: 'Gemini API key',
+  googleKeyPlaceholder: 'Enter Gemini API key (or leave empty for GCP project / gcloud ADC)',
+  googleAuthHint: 'Accepts either a Gemini API key or ambient Google Cloud credentials (gcloud ADC / Vertex AI with your GCP project).',
+  gcpProject: 'Google Cloud Project ID',
+  gcpLocation: 'Google Cloud Location / Region',
 }
 
 /** The settings.models namespace key union. */
@@ -197,4 +202,9 @@ export const zh: { [Key in keyof typeof en]: string } = {
   onboardingSave: '保存并继续',
   onboardingSaving: '保存中…',
   keyRequired: '请输入 API 密钥后继续。',
+  googleKeyInput: 'Gemini API 密钥',
+  googleKeyPlaceholder: '输入 Gemini API 密钥（或留空使用 GCP 项目 / gcloud ADC）',
+  googleAuthHint: '支持填写 Gemini API 密钥，或留空自动使用环境中的 Google Cloud 凭证（gcloud ADC / Vertex AI 及 GCP 项目）。',
+  gcpProject: 'Google Cloud 项目 ID',
+  gcpLocation: 'Google Cloud 区域 / Location',
 }

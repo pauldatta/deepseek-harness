@@ -165,7 +165,8 @@ function reuseCatalogProvider(base: Provider, spec: ProviderSpec): Provider {
  * @throws Error when the route names a wire protocol this build cannot serve.
  */
 export function buildProvider(spec: ProviderSpec): Provider {
-  const catalog = catalogProvider(spec.provider)
+  const baseProviderName = (spec.provider === 'google' || spec.provider === 'gemini') ? 'google-vertex' : spec.provider
+  const catalog = catalogProvider(baseProviderName) ?? catalogProvider(spec.provider)
   // A catalog route keeping its catalog protocol reuses the catalog provider;
   // an explicit protocol means the deployment is repointing the route at a
   // different wire format, which only the protocol table can serve.

@@ -281,8 +281,8 @@ export function catalogProviderIds(): readonly string[] {
   const ids = new Set<string>(getBuiltinProviders())
   ids.add('google')
   ids.add('gemini')
-  ids.add('google-vertex')
-  ids.add('vertex')
+  ids.delete('google-vertex')
+  ids.delete('vertex')
   return [...ids]
 }
 
@@ -329,11 +329,8 @@ export function catalogModels(provider: string): Map<string, Model<Api>> {
     provider === 'vertex' ||
     provider === 'vertex-ai'
   ) {
-    const isVertex = provider === 'google-vertex' || provider === 'vertex' || provider === 'vertex-ai'
-    const defaultApi = isVertex ? 'google-vertex' : 'google-generative-ai'
-    const defaultBaseUrl = isVertex
-      ? 'https://{location}-aiplatform.googleapis.com'
-      : 'https://generativelanguage.googleapis.com/v1beta'
+    const defaultApi = 'google-vertex'
+    const defaultBaseUrl = 'https://{location}-aiplatform.googleapis.com'
 
     const geminiMap = new Map<string, Model<Api>>()
     for (const model of BUILTIN_GEMINI_MODELS) {
@@ -343,7 +340,7 @@ export function catalogModels(provider: string): Map<string, Model<Api>> {
         provider,
         api: defaultApi as Api,
         baseUrl: defaultBaseUrl,
-        ...isVertex || model.compat === undefined ? {} : { compat: model.compat },
+        ...model.compat === undefined ? {} : { compat: model.compat },
       } as Model<Api>)
     }
     if (catalogProviders().has(provider)) {

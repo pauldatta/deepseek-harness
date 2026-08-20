@@ -84,6 +84,12 @@ function profileOptions(
   reasoning: ModelThinkingLevel | undefined,
   apiKey: string | undefined,
 ): SimpleStreamOptions {
+  if (profile.project) {
+    process.env.GOOGLE_CLOUD_PROJECT = profile.project
+  }
+  if (profile.location) {
+    process.env.GOOGLE_CLOUD_LOCATION = profile.location
+  }
   const enabledReasoning: ThinkingLevel | undefined = reasoning === 'off' ? undefined : reasoning
   return {
     ...apiKey === undefined ? {} : { apiKey },

@@ -63,7 +63,7 @@
     - id: agent-default-model
       name: '@deepseek-ai/dsh-agent-default-model'
       config:
-        provider: google-vertex
+        provider: google
         model: gemini-3.7-flash
 
     - id: jobs
@@ -89,35 +89,14 @@
     - id: tool-antigravity
       name: '@deepseek-ai/dsh-tool-antigravity'
 
-    # The pi-ai multi-provider twin configured with Google Gemini and Vertex AI
+    # The pi-ai multi-provider twin configured with Google Gemini
     - id: llm-pi-ai
       name: '@deepseek-ai/dsh-llm-pi-ai'
       config:
         providers:
           google:
-            displayName: Google Gemini (API Key)
+            displayName: Google Gemini
             apiKeyEnv: GEMINI_API_KEY
-            models:
-              - id: gemini-3.7-flash
-                name: Gemini 3.7 Flash
-                contextWindow: 1048576
-                maxTokens: 65536
-                reasoningEfforts:
-                  off: null
-                  low: low
-                  medium: medium
-                  high: high
-              - id: gemini-3.1-pro-preview
-                name: Gemini 3.1 Pro
-                contextWindow: 2097152
-                maxTokens: 65536
-                reasoningEfforts:
-                  off: null
-                  low: low
-                  medium: medium
-                  high: high
-          google-vertex:
-            displayName: Google Cloud Platform (Vertex AI / gcloud)
             project: gpu-launchpad-playground
             location: global
             models:
