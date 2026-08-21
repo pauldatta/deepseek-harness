@@ -12,7 +12,7 @@ import { LlmError } from '@deepseek-ai/dsh-llm'
 import type { Message, ModelMessageSource } from '@deepseek-ai/dsh-llm'
 import type { Api, AssistantMessage, Usage as PiUsage } from '@earendil-works/pi-ai'
 
-type PiAiReplayBlock =
+export type PiAiReplayBlock =
   | { type: 'text'; textSignature?: string }
   | { type: 'reasoning'; thinkingSignature?: string; redacted?: boolean }
   | { type: 'tool-call'; thoughtSignature?: string }

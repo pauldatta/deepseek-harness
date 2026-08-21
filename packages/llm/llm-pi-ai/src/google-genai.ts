@@ -19,6 +19,7 @@ import {
   type ToolSchema,
 } from '@deepseek-ai/dsh-llm'
 import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
+import type { PiAiReplayBlock, PiAiReplayState } from './replay.ts'
 
 export interface GoogleGenAIOptions {
   apiKey?: string | undefined
@@ -49,6 +50,18 @@ async function convertMessages(
 ): Promise<{ contents: Content[]; systemInstruction?: string }> {
   let systemInstruction = ''
   const contents: Content[] = []
+
+  // Map tool call IDs to declared tool names
+  const toolCallNames = new Map<string, string>()
+  for (const message of messages) {
+    if (message.source.kind === 'model') {
+      for (const block of message.content) {
+        if (block.type === 'tool-call') {
+          toolCallNames.set(String(block.id), block.name)
+        }
+      }
+    }
+  }
 
   for (const message of messages) {
     if (message.source.kind === 'plugin') {
@@ -89,9 +102,20 @@ async function convertMessages(
 
     if (message.source.kind === 'model') {
       const parts: Part[] = []
-      for (const block of message.content) {
-        if (block.type === 'text') {
-          if (block.text) parts.push({ text: sanitizeSurrogates(block.text) })
+      const replayState = message.source.replayState as PiAiReplayState | undefined
+      for (const [i, block] of message.content.entries()) {
+        if (!block) continue
+        if (block.type === 'reasoning') {
+          if (block.text) {
+            parts.push({
+              text: sanitizeSurrogates(block.text),
+              thought: true,
+            })
+          }
+        } else if (block.type === 'text') {
+          if (block.text) {
+            parts.push({ text: sanitizeSurrogates(block.text) })
+          }
         } else if (block.type === 'tool-call') {
           let args: Record<string, unknown> = {}
           try {
@@ -99,11 +123,16 @@ async function convertMessages(
           } catch {
             args = { raw: block.arguments }
           }
+          const replayBlock = replayState?.blocks?.[i]
+          const storedSig = replayBlock?.type === 'tool-call' ? replayBlock.thoughtSignature : undefined
+          // Gemini requires a non-empty thoughtSignature for all functionCall parts in multi-turn history.
+          const thoughtSignature = storedSig || Buffer.from(`thought_sig_${block.name}_${String(block.id || 'fc')}`).toString('base64')
           parts.push({
             functionCall: {
               name: block.name,
               args,
             },
+            thoughtSignature,
           })
         }
       }
@@ -126,12 +155,14 @@ async function convertMessages(
           } catch {
             responsePayload = { output: outputText }
           }
+          const callIdStr = String(message.source.callId || block.toolCallId || 'unknown')
+          const toolName = toolCallNames.get(callIdStr) || 'unknown_tool'
           contents.push({
             role: 'user',
             parts: [
               {
                 functionResponse: {
-                  name: String(message.source.callId || 'unknown_tool'),
+                  name: toolName,
                   response: responsePayload,
                 },
               },
@@ -240,6 +271,9 @@ export async function* streamGoogleGenAI(
   let currentBlockIndex = 0
   let totalInputTokens = 0
   let totalOutputTokens = 0
+  let turnThoughtSignature: string | undefined
+  let toolCallCount = 0
+  const replayBlocks: PiAiReplayBlock[] = []
 
   for await (const chunk of stream) {
     if (options.signal?.aborted) {
@@ -255,12 +289,19 @@ export async function* streamGoogleGenAI(
     if (!candidate?.content?.parts) continue
 
     for (const part of candidate.content.parts) {
+      const partWithSig = part as Part & { thought_signature?: string }
+      const sig = part.thoughtSignature || partWithSig.thought_signature
+      if (sig) {
+        turnThoughtSignature = sig
+      }
+
       // 1. Thinking / Thought parts
       if (part.thought || (part.text && candidate.content.role === 'model' && part.thoughtSignature)) {
         if (!thinkingBlockActive) {
           if (textBlockActive) {
             yield { type: 'block-end', index: currentBlockIndex, block: { type: 'text', text: '' } }
             textBlockActive = false
+            replayBlocks.push({ type: 'text' })
             currentBlockIndex++
           }
           yield { type: 'block-start', index: currentBlockIndex, blockType: 'reasoning' }
@@ -275,6 +316,10 @@ export async function* streamGoogleGenAI(
         if (thinkingBlockActive) {
           yield { type: 'block-end', index: currentBlockIndex, block: { type: 'reasoning', text: '' } }
           thinkingBlockActive = false
+          replayBlocks.push({
+            type: 'reasoning',
+            ...(turnThoughtSignature ? { thinkingSignature: turnThoughtSignature } : {}),
+          })
           currentBlockIndex++
         }
         if (!textBlockActive) {
@@ -290,16 +335,27 @@ export async function* streamGoogleGenAI(
         if (textBlockActive) {
           yield { type: 'block-end', index: currentBlockIndex, block: { type: 'text', text: '' } }
           textBlockActive = false
+          replayBlocks.push({ type: 'text' })
           currentBlockIndex++
         }
         if (thinkingBlockActive) {
           yield { type: 'block-end', index: currentBlockIndex, block: { type: 'reasoning', text: '' } }
           thinkingBlockActive = false
+          replayBlocks.push({
+            type: 'reasoning',
+            ...(turnThoughtSignature ? { thinkingSignature: turnThoughtSignature } : {}),
+          })
           currentBlockIndex++
         }
+        toolCallCount++
         const callId = `call_${Math.random().toString(36).slice(2, 10)}`
         const toolName = part.functionCall.name || 'unknown_tool'
         const argsStr = JSON.stringify(part.functionCall.args ?? {})
+        const fcSig = sig || turnThoughtSignature || Buffer.from(`thought_sig_${toolName}_${Date.now()}`).toString('base64')
+        replayBlocks.push({
+          type: 'tool-call',
+          thoughtSignature: fcSig,
+        })
         yield { type: 'block-start', index: currentBlockIndex, blockType: 'tool-call' }
         yield {
           type: 'tool-call-delta',
@@ -325,9 +381,14 @@ export async function* streamGoogleGenAI(
 
   if (textBlockActive) {
     yield { type: 'block-end', index: currentBlockIndex, block: { type: 'text', text: '' } }
+    replayBlocks.push({ type: 'text' })
   }
   if (thinkingBlockActive) {
     yield { type: 'block-end', index: currentBlockIndex, block: { type: 'reasoning', text: '' } }
+    replayBlocks.push({
+      type: 'reasoning',
+      ...(turnThoughtSignature ? { thinkingSignature: turnThoughtSignature } : {}),
+    })
   }
 
   const usage: TokenUsage = {
@@ -335,5 +396,19 @@ export async function* streamGoogleGenAI(
     outputTokens: totalOutputTokens,
   }
   yield { type: 'usage', usage }
-  yield { type: 'finish', reason: { kind: 'stop' } }
+
+  const replayState: PiAiReplayState = {
+    kind: 'pi-ai',
+    version: 1,
+    api: 'google-genai' as unknown as never,
+    provider: options.provider,
+    model: options.model,
+    stopReason: toolCallCount > 0 ? 'toolUse' : 'stop',
+    blocks: replayBlocks,
+  }
+  yield {
+    type: 'finish',
+    reason: toolCallCount > 0 ? { kind: 'tool-calls' } : { kind: 'stop' },
+    replayState,
+  }
 }
