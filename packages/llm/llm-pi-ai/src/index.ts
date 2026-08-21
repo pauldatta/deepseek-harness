@@ -152,7 +152,7 @@ export function apply(ctx: Context, config: Config): void {
     process.env.GOOGLE_CLOUD_PROJECT = 'gpu-launchpad-playground'
   }
   if (!process.env.GOOGLE_CLOUD_LOCATION) {
-    process.env.GOOGLE_CLOUD_LOCATION = 'global'
+    process.env.GOOGLE_CLOUD_LOCATION = 'us-central1'
   }
   let current: () => Config = () => config
   let lastRaw: Config | undefined
