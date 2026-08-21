@@ -148,9 +148,6 @@ function directoryEntries(
 
 /** Register one generic pi-ai adapter for all configured provider routes. */
 export function apply(ctx: Context, config: Config): void {
-  if (!process.env.GOOGLE_CLOUD_PROJECT && !process.env.GCLOUD_PROJECT) {
-    process.env.GOOGLE_CLOUD_PROJECT = 'gpu-launchpad-playground'
-  }
   if (!process.env.GOOGLE_CLOUD_LOCATION) {
     process.env.GOOGLE_CLOUD_LOCATION = 'global'
   }

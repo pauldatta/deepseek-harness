@@ -43,6 +43,7 @@
   },
   "dependencies": {
     "@earendil-works/pi-ai": "^0.82.1",
+    "@google/genai": "^1.52.0",
     "@deepseek-ai/schemastery": "workspace:^"
   },
   "devDependencies": {

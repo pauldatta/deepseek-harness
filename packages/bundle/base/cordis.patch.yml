@@ -97,7 +97,6 @@
           google:
             displayName: Google Gemini
             apiKeyEnv: GEMINI_API_KEY
-            project: gpu-launchpad-playground
             location: global
             models:
               - id: gemini-3.7-flash

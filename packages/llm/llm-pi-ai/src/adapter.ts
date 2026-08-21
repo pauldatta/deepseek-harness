@@ -52,6 +52,7 @@ import { idleWatchdog, timeoutOf } from '@deepseek-ai/dsh-timeout'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { toPiContext } from './context.ts'
 import { toStreamChunks } from './stream.ts'
+import { streamGoogleGenAI } from './google-genai.ts'
 
 /** One resolution's frozen view: the profiles and the collection built from them. */
 interface PiAiSnapshot {
@@ -318,6 +319,19 @@ export class PiAiAdapter extends LlmAdapter {
     using watchdog = idleWatchdog(upstream, streamIdleTimeoutMs, 'LLM_STREAM_IDLE_TIMEOUT')
 
     try {
+      if (options.provider === 'google' || options.provider === 'gemini' || options.provider === 'google-vertex' || options.provider === 'vertex') {
+        const stream = streamGoogleGenAI(options, {
+          apiKey,
+          project: profile.project,
+          location: profile.location,
+          resolveAttachments: () => this.config.resolveAttachments?.(),
+        })
+        for await (const chunk of stream) {
+          yield chunk
+        }
+        return
+      }
+
       const containsImage = options.messages.some(message => contentHasImage(message.content))
       if (containsImage && !model.input.includes('image')) {
         throw new LlmError(`pi-ai model "${model.id}" does not support image input`, 'UNSUPPORTED_CONTENT')
