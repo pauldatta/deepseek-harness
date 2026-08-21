@@ -331,7 +331,7 @@ export function catalogModels(provider: string): Map<string, Model<Api>> {
     provider === 'vertex-ai'
   ) {
     const defaultApi = 'google-vertex'
-    const defaultBaseUrl = 'https://aiplatform.googleapis.com'
+    const defaultBaseUrl = 'https://{location}-aiplatform.googleapis.com'
 
     const geminiMap = new Map<string, Model<Api>>()
     for (const model of BUILTIN_GEMINI_MODELS) {
