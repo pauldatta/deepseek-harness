@@ -295,12 +295,20 @@ export const assistantDefinition: ConversationNodeDefinition<AssistantState> = {
   },
   buildViewNode: (context) => {
     const projected = projectAssistant(context)
-    if (projected === undefined) return null
-    if (projected.settled === undefined && !projected.visible) {
-      const state = context.state ?? fallbackState(context)
-      if (state === undefined) return null
+    if (projected === undefined) {
       const current = context.current.get('chat')
-      if (!state.hidden || current === undefined || current === null) return null
+      if (current === undefined || current === null) return null
+      return chatNode(context, 'assistant-step', 0, {
+        status: 'settled',
+        turn: 0,
+        step: 0,
+        blocks: [],
+        time: 0,
+      }, { visibility: 'hidden' })
+    }
+    if (projected.settled === undefined && !projected.visible) {
+      const current = context.current.get('chat')
+      if (current === undefined || current === null) return null
     }
     return chatNode(context, 'assistant-step', projected.anchorSeq, projected.data, {
       visibility: projected.settled?.interrupted === true || projected.visible ? 'visible' : 'hidden',
