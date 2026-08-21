@@ -219,6 +219,15 @@
         enableRunInBackground: false
         maxDepth: provider-managed
 
+    - id: tool-subagent-antigravity
+      name: '@deepseek-ai/dsh-tool-subagent'
+      disabled: false
+      config:
+        provider: antigravity-cli
+        toolName: subagent_antigravity
+        enableRunInBackground: false
+        maxDepth: provider-managed
+
     - id: workflow-worker-thread
       name: '@deepseek-ai/dsh-workflow-worker-thread'
       config:

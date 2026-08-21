@@ -283,6 +283,7 @@ export function catalogProviderIds(): readonly string[] {
   ids.add('gemini')
   ids.delete('google-vertex')
   ids.delete('vertex')
+  ids.delete('deepseek')
   return [...ids]
 }
 

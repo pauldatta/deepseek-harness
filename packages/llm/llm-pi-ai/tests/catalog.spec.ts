@@ -150,7 +150,7 @@ describe('hand-declared providers', () => {
     // provider carries a stored profile the moment anyone corrects it.
     expect(directory.filter(entry => entry.declared).map(entry => entry.provider))
       .toEqual(['acme-gateway'])
-    expect(directory.find(entry => entry.provider === 'deepseek')?.declared).toBe(false)
+    expect(directory.find(entry => entry.provider === 'google')?.declared).toBe(false)
   })
 
   it('sizes a model the catalog cannot describe from the route\u2019s own fallbacks', () => {
