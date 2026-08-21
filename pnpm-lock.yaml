@@ -1052,9 +1052,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:^
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:^
-        version: link:../../llm/llm-deepseek
       '@deepseek-ai/dsh-llm-pi-ai':
         specifier: workspace:^
         version: link:../../llm/llm-pi-ai
@@ -1214,9 +1211,6 @@ importers:
       '@deepseek-ai/dsh-web':
         specifier: workspace:^
         version: link:../../web/web
-      '@deepseek-ai/dsh-web-search-deepseek':
-        specifier: workspace:^
-        version: link:../../web/web-search-deepseek
       '@deepseek-ai/dsh-workflow-worker-thread':
         specifier: workspace:^
         version: link:../../workflow/workflow-worker-thread

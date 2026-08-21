@@ -407,6 +407,12 @@
 - id: tool-web
   disabled: true
 
+- id: tool-antigravity
+  disabled: true
+
+- id: tool-subagent-antigravity
+  disabled: true
+
 # The preset roster. `config/agent-presets/` ships with the deployment and is
 # read-only (its entries carry `system` trust); `$DSH_HOME/.agent-presets` is
 # where a person — or an agent — authors their own, and carries the same trust
