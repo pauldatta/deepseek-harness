@@ -280,6 +280,8 @@ export async function* streamGoogleGenAI(
   let textBlockActive = false
   let thinkingBlockActive = false
   let currentBlockIndex = 0
+  let accumulatedText = ''
+  let accumulatedReasoning = ''
   let totalInputTokens = 0
   let totalOutputTokens = 0
   let turnThoughtSignature: string | undefined
@@ -307,26 +309,31 @@ export async function* streamGoogleGenAI(
       }
 
       // 1. Thinking / Thought parts
-      if (part.thought || (part.text && candidate.content.role === 'model' && part.thoughtSignature)) {
+      if (part.thought === true) {
         if (!thinkingBlockActive) {
           if (textBlockActive) {
-            yield { type: 'block-end', index: currentBlockIndex, block: { type: 'text', text: '' } }
+            yield { type: 'block-end', index: currentBlockIndex, block: { type: 'text', text: accumulatedText } }
             textBlockActive = false
+            accumulatedText = ''
             replayBlocks.push({ type: 'text' })
             currentBlockIndex++
           }
           yield { type: 'block-start', index: currentBlockIndex, blockType: 'reasoning' }
           thinkingBlockActive = true
+          accumulatedReasoning = ''
         }
-        yield { type: 'reasoning-delta', index: currentBlockIndex, text: part.text || '' }
+        const t = part.text || ''
+        accumulatedReasoning += t
+        yield { type: 'reasoning-delta', index: currentBlockIndex, text: t }
         continue
       }
 
       // 2. Text parts
       if (typeof part.text === 'string' && part.text.length > 0) {
         if (thinkingBlockActive) {
-          yield { type: 'block-end', index: currentBlockIndex, block: { type: 'reasoning', text: '' } }
+          yield { type: 'block-end', index: currentBlockIndex, block: { type: 'reasoning', text: accumulatedReasoning } }
           thinkingBlockActive = false
+          accumulatedReasoning = ''
           replayBlocks.push({
             type: 'reasoning',
             ...(turnThoughtSignature ? { thinkingSignature: turnThoughtSignature } : {}),
@@ -336,7 +343,9 @@ export async function* streamGoogleGenAI(
         if (!textBlockActive) {
           yield { type: 'block-start', index: currentBlockIndex, blockType: 'text' }
           textBlockActive = true
+          accumulatedText = ''
         }
+        accumulatedText += part.text
         yield { type: 'text-delta', index: currentBlockIndex, text: part.text }
         continue
       }
@@ -344,14 +353,16 @@ export async function* streamGoogleGenAI(
       // 3. Tool call / Function call parts
       if (part.functionCall) {
         if (textBlockActive) {
-          yield { type: 'block-end', index: currentBlockIndex, block: { type: 'text', text: '' } }
+          yield { type: 'block-end', index: currentBlockIndex, block: { type: 'text', text: accumulatedText } }
           textBlockActive = false
+          accumulatedText = ''
           replayBlocks.push({ type: 'text' })
           currentBlockIndex++
         }
         if (thinkingBlockActive) {
-          yield { type: 'block-end', index: currentBlockIndex, block: { type: 'reasoning', text: '' } }
+          yield { type: 'block-end', index: currentBlockIndex, block: { type: 'reasoning', text: accumulatedReasoning } }
           thinkingBlockActive = false
+          accumulatedReasoning = ''
           replayBlocks.push({
             type: 'reasoning',
             ...(turnThoughtSignature ? { thinkingSignature: turnThoughtSignature } : {}),
@@ -391,15 +402,17 @@ export async function* streamGoogleGenAI(
   }
 
   if (textBlockActive) {
-    yield { type: 'block-end', index: currentBlockIndex, block: { type: 'text', text: '' } }
+    yield { type: 'block-end', index: currentBlockIndex, block: { type: 'text', text: accumulatedText } }
     replayBlocks.push({ type: 'text' })
+    currentBlockIndex++
   }
   if (thinkingBlockActive) {
-    yield { type: 'block-end', index: currentBlockIndex, block: { type: 'reasoning', text: '' } }
+    yield { type: 'block-end', index: currentBlockIndex, block: { type: 'reasoning', text: accumulatedReasoning } }
     replayBlocks.push({
       type: 'reasoning',
       ...(turnThoughtSignature ? { thinkingSignature: turnThoughtSignature } : {}),
     })
+    currentBlockIndex++
   }
 
   const usage: TokenUsage = {
