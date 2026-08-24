@@ -28,6 +28,13 @@ export interface GoogleGenAIOptions {
   resolveAttachments?: (() => AttachmentStore | undefined) | undefined
 }
 
+/**
+ * Standard Google/Beyond dummy function-call thought signature.
+ * Recognized by Vertex AI Beyond service to bypass signature verification
+ * during model switching, imported sessions, or synthetic turns.
+ */
+export const GOOGLE_FAKE_FC_SIGNATURE = 'e24830a7-5cd6-42fe-998b-ee539e72b9c3'
+
 function sanitizeSurrogates(text: string): string {
   return text.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
 }
@@ -124,9 +131,13 @@ async function convertMessages(
             args = { raw: block.arguments }
           }
           const replayBlock = replayState?.blocks?.[i]
-          const storedSig = replayBlock?.type === 'tool-call' ? replayBlock.thoughtSignature : undefined
-          // Gemini requires a non-empty thoughtSignature for all functionCall parts in multi-turn history.
-          const thoughtSignature = storedSig || Buffer.from(`thought_sig_${block.name}_${String(block.id || 'fc')}`).toString('base64')
+          let storedSig = replayBlock?.type === 'tool-call' ? replayBlock.thoughtSignature : undefined
+          // Gemini requires a valid thoughtSignature for all functionCall parts in multi-turn history.
+          // When a real signature was not captured or was synthetic, use the official Google dummy signature.
+          if (!storedSig || storedSig.startsWith('dGhvdWdodF9zaWdf') || storedSig.includes('thought_sig_')) {
+            storedSig = GOOGLE_FAKE_FC_SIGNATURE
+          }
+          const thoughtSignature = storedSig
           parts.push({
             functionCall: {
               name: block.name,
@@ -351,7 +362,7 @@ export async function* streamGoogleGenAI(
         const callId = `call_${Math.random().toString(36).slice(2, 10)}`
         const toolName = part.functionCall.name || 'unknown_tool'
         const argsStr = JSON.stringify(part.functionCall.args ?? {})
-        const fcSig = sig || turnThoughtSignature || Buffer.from(`thought_sig_${toolName}_${Date.now()}`).toString('base64')
+        const fcSig = sig || turnThoughtSignature || GOOGLE_FAKE_FC_SIGNATURE
         replayBlocks.push({
           type: 'tool-call',
           thoughtSignature: fcSig,
