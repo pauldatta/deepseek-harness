@@ -162,7 +162,12 @@ async function convertMessages(
             .join('\n')
           let responsePayload: Record<string, unknown>
           try {
-            responsePayload = JSON.parse(outputText) as Record<string, unknown>
+            const parsed: unknown = JSON.parse(outputText)
+            if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+              responsePayload = parsed as Record<string, unknown>
+            } else {
+              responsePayload = { output: parsed }
+            }
           } catch {
             responsePayload = { output: outputText }
           }
@@ -184,8 +189,22 @@ async function convertMessages(
     }
   }
 
+  // Merge consecutive entries with the same role (e.g. parallel tool responses) into single turn
+  const mergedContents: Content[] = []
+  for (const entry of contents) {
+    const prev = mergedContents[mergedContents.length - 1]
+    if (prev && prev.role === entry.role && Array.isArray(prev.parts) && Array.isArray(entry.parts)) {
+      prev.parts.push(...entry.parts)
+    } else {
+      mergedContents.push({
+        ...(entry.role ? { role: entry.role } : {}),
+        parts: [...(entry.parts || [])],
+      })
+    }
+  }
+
   return {
-    contents,
+    contents: mergedContents,
     ...(systemInstruction ? { systemInstruction: sanitizeSurrogates(systemInstruction) } : {}),
   }
 }
