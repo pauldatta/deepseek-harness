@@ -203,6 +203,22 @@ async function convertMessages(
     }
   }
 
+  // Vertex AI rejects requests ending with a model turn ("Requests ending with a model turn are not supported").
+  // Drop trailing model turns (e.g. if the previous turn was interrupted before tool execution or text completion).
+  while (mergedContents.length > 0 && mergedContents[mergedContents.length - 1]?.role === 'model') {
+    mergedContents.pop()
+  }
+
+  // Ensure request does not start with a model turn
+  while (mergedContents.length > 0 && mergedContents[0]?.role === 'model') {
+    mergedContents.shift()
+  }
+
+  // If contents became empty, provide a fallback user turn
+  if (mergedContents.length === 0) {
+    mergedContents.push({ role: 'user', parts: [{ text: 'Continue' }] })
+  }
+
   return {
     contents: mergedContents,
     ...(systemInstruction ? { systemInstruction: sanitizeSurrogates(systemInstruction) } : {}),
