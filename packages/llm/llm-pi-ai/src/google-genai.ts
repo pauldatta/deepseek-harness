@@ -12,6 +12,7 @@ import type { Content, GenerateContentConfig, Part, Tool } from '@google/genai'
 import {
   CallId,
   LlmError,
+  type ContentBlock,
   type GenerateOptions,
   type Message,
   type StreamChunk,
@@ -51,6 +52,12 @@ function convertTools(tools: readonly ToolSchema[]): Tool[] {
   ]
 }
 
+function extractToolResultText(blocks: readonly ContentBlock[]): string {
+  return blocks
+    .map(b => (b.type === 'text' ? b.text : b.type === 'tool-result' ? extractToolResultText(b.content) : ''))
+    .join('\n')
+}
+
 async function convertMessages(
   messages: readonly Message[],
   resolveAttachments?: (() => AttachmentStore | undefined) | undefined,
@@ -61,7 +68,7 @@ async function convertMessages(
   // Map tool call IDs to declared tool names
   const toolCallNames = new Map<string, string>()
   for (const message of messages) {
-    if (message.source.kind === 'model') {
+    if (message.role === 'assistant') {
       for (const block of message.content) {
         if (block.type === 'tool-call') {
           toolCallNames.set(String(block.id), block.name)
@@ -71,7 +78,7 @@ async function convertMessages(
   }
 
   for (const message of messages) {
-    if (message.source.kind === 'plugin') {
+    if (message.role === 'system') {
       const text = message.content
         .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
         .map(b => b.text)
@@ -82,34 +89,11 @@ async function convertMessages(
       continue
     }
 
-    if (message.source.kind === 'user') {
+    if (message.role === 'assistant') {
       const parts: Part[] = []
-      for (const block of message.content) {
-        if (block.type === 'text') {
-          if (block.text) parts.push({ text: sanitizeSurrogates(block.text) })
-        } else if (block.type === 'image') {
-          const store = resolveAttachments?.()
-          if (store && block.attachment) {
-            const stored = await store.readImage(block.attachment)
-            const base64 = Buffer.from(stored.data).toString('base64')
-            parts.push({
-              inlineData: {
-                mimeType: stored.ref.mediaType,
-                data: base64,
-              },
-            })
-          }
-        }
-      }
-      if (parts.length > 0) {
-        contents.push({ role: 'user', parts })
-      }
-      continue
-    }
-
-    if (message.source.kind === 'model') {
-      const parts: Part[] = []
-      const replayState = message.source.replayState as PiAiReplayState | undefined
+      const replayState = message.source.kind === 'model'
+        ? (message.source.replayState as PiAiReplayState | undefined)
+        : undefined
       for (const [i, block] of message.content.entries()) {
         if (!block) continue
         if (block.type === 'reasoning') {
@@ -153,13 +137,25 @@ async function convertMessages(
       continue
     }
 
-    if (message.source.kind === 'tool') {
+    if (message.role === 'user') {
+      const parts: Part[] = []
       for (const block of message.content) {
-        if (block.type === 'tool-result') {
-          const outputText = block.content
-            .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-            .map(b => b.text)
-            .join('\n')
+        if (block.type === 'text') {
+          if (block.text) parts.push({ text: sanitizeSurrogates(block.text) })
+        } else if (block.type === 'image') {
+          const store = resolveAttachments?.()
+          if (store && block.attachment) {
+            const stored = await store.readImage(block.attachment)
+            const base64 = Buffer.from(stored.data).toString('base64')
+            parts.push({
+              inlineData: {
+                mimeType: stored.ref.mediaType,
+                data: base64,
+              },
+            })
+          }
+        } else if (block.type === 'tool-result') {
+          const outputText = extractToolResultText(block.content)
           let responsePayload: Record<string, unknown>
           try {
             const parsed: unknown = JSON.parse(outputText)
@@ -171,21 +167,20 @@ async function convertMessages(
           } catch {
             responsePayload = { output: outputText }
           }
-          const callIdStr = String(message.source.callId || block.toolCallId || 'unknown')
+          const callIdStr = String(block.toolCallId || 'unknown')
           const toolName = toolCallNames.get(callIdStr) || 'unknown_tool'
-          contents.push({
-            role: 'user',
-            parts: [
-              {
-                functionResponse: {
-                  name: toolName,
-                  response: responsePayload,
-                },
-              },
-            ],
+          parts.push({
+            functionResponse: {
+              name: toolName,
+              response: responsePayload,
+            },
           })
         }
       }
+      if (parts.length > 0) {
+        contents.push({ role: 'user', parts })
+      }
+      continue
     }
   }
 
