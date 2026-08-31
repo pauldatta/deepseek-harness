@@ -61,6 +61,7 @@
     { "path": "./packages/client/runtime" },
     { "path": "./packages/extensions/cordis-client-runner" },
     { "path": "./packages/extensions/ui-cordis" },
+    { "path": "./packages/extensions/mmb-migration-workbench" },
     { "path": "./packages/test-support/client-runtime" },
     { "path": "./packages/client/ui-layout" },
     { "path": "./packages/client/ui-sidebar" },

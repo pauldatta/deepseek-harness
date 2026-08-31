@@ -30,6 +30,7 @@
     "@deepseek-ai/dsh-cordis-client-runner": "workspace:^",
     "@deepseek-ai/dsh-client-ui-agent-preset": "workspace:^",
     "@deepseek-ai/dsh-client-ui-cordis": "workspace:^",
+    "@deepseek-ai/dsh-mmb-migration-workbench": "workspace:^",
     "@deepseek-ai/dsh-command-compact": "workspace:^",
     "@deepseek-ai/dsh-command-goal": "workspace:^",
     "@deepseek-ai/dsh-compaction-basic": "workspace:^",
