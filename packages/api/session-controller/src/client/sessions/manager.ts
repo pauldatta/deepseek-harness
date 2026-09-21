@@ -617,11 +617,13 @@ export class SessionManager {
 
   private replaceControlBaseline(baseline: SessionControlBaseline): void {
     this.jobsBySession.clear()
-    for (const [sessionId, jobs] of Object.entries(baseline.jobs)) {
-      if (jobs.length > 0) this.jobsBySession.set(sessionId as SessionId, jobs)
+    if (!baseline) return
+    for (const [sessionId, jobs] of Object.entries(baseline.jobs ?? {})) {
+      if (jobs && jobs.length > 0) this.jobsBySession.set(sessionId as SessionId, jobs)
     }
 
-    for (const [sessionId, block] of Object.entries(baseline.projections)) {
+    for (const [sessionId, block] of Object.entries(baseline.projections ?? {})) {
+      if (!block) continue
       const store = this.projectionStore(sessionId as SessionId)
       const asOfSeq = sessionSeqCursor(block.asOfSeq)
       store.seed({ ...block, asOfSeq })
