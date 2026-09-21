@@ -399,9 +399,13 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     )
     // A provider with no native key authentication has no key for this field to store.
     const keylessNativeAuth = nativeAuth?.env.length === 0 && nativeAuth.oauth
-    const keyPlaceholder = keyHint === undefined || props.credentialRequired === true
-      ? t('keyPlaceholder')
-      : t(savedCredential ? 'keyPlaceholderSaved' : 'keyPlaceholderFallback').replace('{hint}', () => keyHint)
+    const isGoogle = props.provider === 'google' || props.provider === 'gemini'
+    const keyLabel = isGoogle ? t('googleKeyInput') : t('keyInput')
+    const keyPlaceholder = isGoogle && !savedCredential && props.credentialRequired !== true
+      ? t('googleKeyPlaceholder')
+      : keyHint === undefined || props.credentialRequired === true
+        ? t('keyPlaceholder')
+        : t(savedCredential ? 'keyPlaceholderSaved' : 'keyPlaceholderFallback').replace('{hint}', () => keyHint)
     /** What both family editors take: the rows, whose layer owns them, and the two writes. */
     const catalogProps = {
       models,
@@ -419,14 +423,14 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
           ? null
           : <div className={styles['field']}>
             <span className={styles['fieldLabel']}>
-              {t('keyInput')}
+              {keyLabel}
               {authHelp}
             </span>
             <ApiKeyInput
               t={t}
               value={keyDraft}
               placeholder={keyPlaceholder}
-              aria-label={t('keyInput')}
+              aria-label={keyLabel}
               aria-invalid={shownKeyFailure !== undefined}
               aria-describedby={credentialHint === undefined ? undefined : `${props.provider}-credential-hint`}
               required={props.credentialRequired === true}
@@ -436,6 +440,11 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
             />
             {credentialHint === undefined ? null : <p id={`${props.provider}-credential-hint`} className={styles[missingRefs ? 'notice' : detectedRef === undefined ? 'advancedHint' : 'savedNotice']}>{credentialHint}</p>}
             {shownKeyFailure === undefined ? null : <p className={styles['error']}>{t(shownKeyFailure)}</p>}
+            {isGoogle ? (
+              <p className={styles['advancedHint']} style={{ marginTop: '6px' }}>
+                {t('googleAuthHint')}
+              </p>
+            ) : null}
           </div>}
         {props.credentialOnly === true ? null : <details className={styles['customized']}>
           <summary className={styles['customizedSummary']}>{t('customized')}</summary>
@@ -467,6 +476,38 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                 </div>
               )
               : null}
+            {isGoogle ? (
+              <>
+                <div className={styles['field']}>
+                  <span className={styles['fieldLabel']}>{t('gcpProject')}</span>
+                  <input
+                    className={styles['input']}
+                    type="text"
+                    value={stringAt(draft, 'project') ?? ''}
+                    placeholder={stringAt(schema.getPath(namespace.base, settingsPath), 'project') ?? ''}
+                    aria-label={t('gcpProject')}
+                    disabled={disabled}
+                    onChange={(event) => {
+                      setField('project', event.target.value === '' ? undefined : event.target.value)
+                    }}
+                  />
+                </div>
+                <div className={styles['field']}>
+                  <span className={styles['fieldLabel']}>{t('gcpLocation')}</span>
+                  <input
+                    className={styles['input']}
+                    type="text"
+                    value={stringAt(draft, 'location') ?? ''}
+                    placeholder={stringAt(schema.getPath(namespace.base, settingsPath), 'location') ?? 'global'}
+                    aria-label={t('gcpLocation')}
+                    disabled={disabled}
+                    onChange={(event) => {
+                      setField('location', event.target.value === '' ? undefined : event.target.value)
+                    }}
+                  />
+                </div>
+              </>
+            ) : null}
             <div className={styles['field']}>
               <span className={styles['fieldLabel']}>{t('baseUrl')}</span>
               <input

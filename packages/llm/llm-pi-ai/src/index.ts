@@ -66,7 +66,7 @@ import type {} from '@deepseek-ai/dsh-fs'
 import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
 import { PiAiAdapter } from './adapter.ts'
 import { authContextFrom, credentialStoreFrom } from './auth.ts'
-import { catalogProvider, catalogProviderIds } from './catalog.ts'
+import { catalogProvider, catalogProviderIds, findAvailableProvider } from './catalog.ts'
 import { assertServiceable, Config, resolveProfiles } from './config.ts'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { discoverModels } from './discovery.ts'
@@ -131,7 +131,7 @@ function directoryEntries(
 ): LlmConfigurableProvider[] {
   const entries = new Map<string, LlmConfigurableProvider>()
   const declare = (provider: string, displayName: string, error?: string): void => {
-    const installed = catalogProvider(provider)
+    const installed = catalogProvider(provider) ?? findAvailableProvider(provider)
     entries.set(provider, {
       provider,
       displayName,
@@ -152,6 +152,9 @@ function directoryEntries(
 
 /** Register one generic pi-ai adapter for all configured provider routes. */
 export function apply(ctx: Context, config: Config): void {
+  if (!process.env.GOOGLE_CLOUD_LOCATION) {
+    process.env.GOOGLE_CLOUD_LOCATION = 'global'
+  }
   ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
   const settingsNs = ctx.fiber.entry?.options.id ?? NS
   let lastRaw: ReturnType<Config['providers']['get']> | undefined
@@ -202,6 +205,23 @@ export function apply(ctx: Context, config: Config): void {
       // Without the seam the environment is the whole credential plane.
       : launchEnvironmentOf(ctx).get(ref)?.value
     if (hit !== undefined && hit.length > 0) return assertUsableApiKey(hit, 'llm-pi-ai', ref)
+
+    // Check common environment aliases
+    const aliases = provider === 'google' || provider === 'google-vertex'
+      ? ['GEMINI_API_KEY', 'GOOGLE_API_KEY', 'VERTEX_API_KEY', 'GOOGLE_CLOUD_API_KEY']
+      : []
+    for (const altRef of aliases) {
+      const altHit = credentials !== undefined
+        ? (await credentials.resolve(altRef as string as never))?.value
+        : launchEnvironmentOf(ctx).get(altRef)?.value ?? process.env[altRef]
+      if (altHit !== undefined && altHit.length > 0) return assertUsableApiKey(altHit, 'llm-pi-ai', altRef)
+    }
+
+    // For Google Gemini / Vertex providers with ambient discovery (ADC / gcloud), allow deferring to ambient discovery without failing
+    if (provider === 'google' || provider === 'gemini' || provider === 'google-vertex' || provider === 'vertex') {
+      return undefined
+    }
+
     throw new LlmError(
       `llm-pi-ai: no credential for provider route "${provider}"; its profile resolves ${ref}, which is not`
       + ` set — store ${ref} through the credentials service (the web Models page writes it) or export it,`

@@ -35,7 +35,7 @@ export interface PiAiReplayResponse {
 }
 
 /** The validated halves of one pi-ai replay envelope. */
-interface PiAiReplayState {
+export interface PiAiReplayState {
   response: PiAiReplayResponse
   blocks: PiAiReplayBlock[]
 }

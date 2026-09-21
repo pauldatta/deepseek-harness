@@ -5,7 +5,7 @@ export const en = {
   nav: 'Models',
   deepSeekAccount: 'DeepSeek Account',
   title: 'Models',
-  intro: 'Enter your API keys to use models from the following providers.',
+  intro: 'Enter your API keys or use auto-detected environment credentials (gcloud / ADC) to use models.',
   edit: 'Edit',
   editProvider: 'Edit {provider}',
   remove: 'Delete',
@@ -139,6 +139,11 @@ export const en = {
   onboardingSave: 'Save and continue',
   onboardingSaving: 'Saving…',
   keyRequired: 'Enter an API key to continue.',
+  googleKeyInput: 'Gemini API key',
+  googleKeyPlaceholder: 'Enter Gemini API key (or leave empty for GCP project / gcloud ADC)',
+  googleAuthHint: 'Accepts either a Gemini API key or ambient Google Cloud credentials (gcloud ADC / Vertex AI with your GCP project).',
+  gcpProject: 'Google Cloud Project ID',
+  gcpLocation: 'Google Cloud Location / Region',
 }
 
 /** The settings.models namespace key union. */
@@ -283,6 +288,11 @@ export const zh: { [Key in keyof typeof en]: string } = {
   onboardingSave: '保存并继续',
   onboardingSaving: '保存中…',
   keyRequired: '请输入 API 密钥后继续。',
+  googleKeyInput: 'Gemini API 密钥',
+  googleKeyPlaceholder: '输入 Gemini API 密钥（或留空使用 GCP 项目 / gcloud ADC）',
+  googleAuthHint: '支持填写 Gemini API 密钥，或留空自动使用环境中的 Google Cloud 凭证（gcloud ADC / Vertex AI 及 GCP 项目）。',
+  gcpProject: 'Google Cloud 项目 ID',
+  gcpLocation: 'Google Cloud 区域 / Location',
 }
 
 /** Japanese copy, checked against the English keys. */
@@ -424,6 +434,11 @@ export const ja = {
   'onboardingSave': '保存して続ける',
   'onboardingSaving': '保存中…',
   'keyRequired': '続けるにはAPIキーを入力してください。',
+  'googleKeyInput': 'Gemini APIキー',
+  'googleKeyPlaceholder': 'Gemini APIキーを入力（またはGCPプロジェクト / gcloud ADCを使用する場合は空欄）',
+  'googleAuthHint': 'Gemini APIキー、または環境のGoogle Cloud認証情報（GCPプロジェクトのgcloud ADC / Vertex AI）を使用できます。',
+  'gcpProject': 'Google Cloud プロジェクトID',
+  'gcpLocation': 'Google Cloud ロケーション / リージョン',
 } satisfies Record<keyof typeof en, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -565,6 +580,11 @@ export const es = {
   onboardingSave: 'Guardar y continuar',
   onboardingSaving: 'Guardando…',
   keyRequired: 'Ingrese una clave API para continuar.',
+  googleKeyInput: 'Clave API de Gemini',
+  googleKeyPlaceholder: 'Ingrese la clave API de Gemini (o déjelo vacío para proyecto de GCP / gcloud ADC)',
+  googleAuthHint: 'Acepta una clave API de Gemini o credenciales ambientales de Google Cloud (gcloud ADC / Vertex AI con su proyecto de GCP).',
+  gcpProject: 'ID de proyecto de Google Cloud',
+  gcpLocation: 'Ubicación / Región de Google Cloud',
 } satisfies Record<keyof typeof en, string>
 
 /** French dictionary, checked against the English keys. */
@@ -706,6 +726,11 @@ export const fr = {
   onboardingSave: 'Enregistrer et continuer',
   onboardingSaving: 'Sauvegarde…',
   keyRequired: 'Entrez une clé API pour continuer.',
+  googleKeyInput: 'Clé API Gemini',
+  googleKeyPlaceholder: 'Entrez la clé API Gemini (ou laissez vide pour projet GCP / gcloud ADC)',
+  googleAuthHint: "Accepte une clé API Gemini ou les identifiants Google Cloud ambiants (gcloud ADC / Vertex AI avec votre projet GCP).",
+  gcpProject: 'ID de projet Google Cloud',
+  gcpLocation: 'Emplacement / Région Google Cloud',
 } satisfies Record<keyof typeof en, string>
 
 /** German dictionary, checked against the English keys. */
@@ -847,6 +872,11 @@ export const de = {
   onboardingSave: 'Speichern und fortfahren',
   onboardingSaving: 'Speichern…',
   keyRequired: 'Geben Sie einen API-Schlüssel ein, um fortzufahren.',
+  googleKeyInput: 'Gemini-API-Schlüssel',
+  googleKeyPlaceholder: 'Gemini-API-Schlüssel eingeben (oder leer lassen für GCP-Projekt / gcloud ADC)',
+  googleAuthHint: 'Akzeptiert entweder einen Gemini-API-Schlüssel oder Umgebungs-Google-Cloud-Anmeldeinformationen (gcloud ADC / Vertex AI mit Ihrem GCP-Projekt).',
+  gcpProject: 'Google Cloud-Projekt-ID',
+  gcpLocation: 'Google Cloud-Standort / Region',
 } satisfies Record<keyof typeof en, string>
 
 /** Russian dictionary, checked against the English keys. */
@@ -988,6 +1018,11 @@ export const ru = {
   onboardingSave: 'Сохранить и продолжить',
   onboardingSaving: 'Сохранение…',
   keyRequired: 'Введите ключ API, чтобы продолжить.',
+  googleKeyInput: 'Ключ API Gemini',
+  googleKeyPlaceholder: 'Введите ключ API Gemini (или оставьте пустым для проекта GCP / gcloud ADC)',
+  googleAuthHint: 'Принимает ключ API Gemini или учетные данные окружения Google Cloud (gcloud ADC / Vertex AI с вашим проектом GCP).',
+  gcpProject: 'ID проекта Google Cloud',
+  gcpLocation: 'Расположение / Регион Google Cloud',
 } satisfies Record<keyof typeof en, string>
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -1129,4 +1164,9 @@ export const pt = {
   onboardingSave: 'Salvar e continuar',
   onboardingSaving: 'Salvando…',
   keyRequired: 'Insira uma chave de API para continuar.',
+  googleKeyInput: 'Chave de API do Gemini',
+  googleKeyPlaceholder: 'Insira a chave de API do Gemini (ou deixe em branco para projeto GCP / gcloud ADC)',
+  googleAuthHint: 'Aceita uma chave de API do Gemini ou credenciais de ambiente do Google Cloud (gcloud ADC / Vertex AI com seu projeto GCP).',
+  gcpProject: 'ID do projeto do Google Cloud',
+  gcpLocation: 'Localização / Região do Google Cloud',
 } satisfies Record<keyof typeof en, string>
