@@ -261,7 +261,21 @@ export class BrowserAuth {
    * @returns true only when the caller may serve index.html.
    */
   authorizeIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse, secure = false): boolean {
-    if (process.env.DSH_DISABLE_AUTH === '1' || process.env.DSH_DISABLE_AUTH === 'true') {
+    if (
+      process.env.DSH_DISABLE_AUTH === '1'
+      || process.env.DSH_DISABLE_AUTH === 'true'
+      || process.env.DSH_NO_AUTH === '1'
+    ) {
+      const url = new URL(req.url ?? '/', 'http://dsh.invalid')
+      if (url.searchParams.has(TOKEN_QUERY)) {
+        res.writeHead(303, {
+          'cache-control': 'no-store',
+          'location': './',
+          'referrer-policy': 'no-referrer',
+        })
+        res.end()
+        return false
+      }
       return true
     }
     /* v8 ignore next -- node:http always supplies url on server requests. */
@@ -357,7 +371,11 @@ export class BrowserAuth {
    * @returns true only for an unexpired cookie signed by this activation's loaded secret.
    */
   isAuthenticated(request: ConnectionTrustRequest, secure = false): boolean {
-    if (process.env.DSH_DISABLE_AUTH === '1' || process.env.DSH_DISABLE_AUTH === 'true') {
+    if (
+      process.env.DSH_DISABLE_AUTH === '1'
+      || process.env.DSH_DISABLE_AUTH === 'true'
+      || process.env.DSH_NO_AUTH === '1'
+    ) {
       return true
     }
     return this.authenticate(request, secure)?.version === COOKIE_PAYLOAD_VERSION
