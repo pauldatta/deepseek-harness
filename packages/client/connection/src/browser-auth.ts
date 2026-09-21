@@ -239,6 +239,16 @@ export class BrowserAuth {
    */
   authorizeIndex(req: ConnectionIndexRequest, res: ConnectionIndexResponse): boolean {
     if (process.env.DSH_DISABLE_AUTH === '1' || process.env.DSH_DISABLE_AUTH === 'true') {
+      const url = new URL(req.url ?? '/', 'http://dsh.invalid')
+      if (url.searchParams.has(TOKEN_QUERY)) {
+        res.writeHead(303, {
+          'cache-control': 'no-store',
+          'location': '/',
+          'referrer-policy': 'no-referrer',
+        })
+        res.end()
+        return false
+      }
       return true
     }
     /* v8 ignore next -- node:http always supplies url on server requests. */
