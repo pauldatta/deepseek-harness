@@ -25,7 +25,7 @@
  * @module @deepseek-ai/dsh-typert-loader
  */
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -362,9 +362,14 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     return resolved
   }
 
-  const loadManifest = (pkgName: string, path: string): Promise<TypertContribution> => {
+  const loadManifest = (pkgName: string, path: string): Promise<TypertContribution | null> => {
     let loading = manifests.get(pkgName)
     if (loading === undefined) {
+      if (!existsSync(path)) {
+        const absent = Promise.resolve(null as unknown as TypertContribution)
+        manifests.set(pkgName, absent)
+        return absent
+      }
       loading = import(pathToFileURL(path).href).then(
         (mod: Record<string, unknown>) => validateTypertManifest(pkgName, mod.TYPERT),
         (cause: unknown) => {
@@ -401,7 +406,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     if (artifact === null) return undefined
     const task = loadManifest(artifact.packageName, artifact.path).then((manifest) => {
       // The entry may have unmounted (or already re-registered) while the import was in flight.
-      if (!active || !qualifies(entryName) || registered.has(entryName)) return
+      if (!active || !qualifies(entryName) || registered.has(entryName) || !manifest) return
       registered.set(entryName, ctx.typert.register(manifest))
     })
     pending.set(entryName, task)

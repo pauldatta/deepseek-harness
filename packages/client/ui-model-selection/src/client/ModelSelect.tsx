@@ -97,14 +97,14 @@ export function ModelSelect(
     ? undefined
     : effectiveEffort === undefined
       ? t('effort.providerDefault')
-      : reasoning.efforts.find(level => level.id === effectiveEffort)?.name ?? effectiveEffort
+      : reasoning.efforts?.find(level => level.id === effectiveEffort)?.name ?? effectiveEffort
   const effortChoices = useMemo<readonly EffortChoice[]>(() => reasoning === undefined
     ? []
     : [
       ...reasoning.defaultEffort === undefined
         ? [{ key: 'provider-default', effort: undefined, label: t('effort.providerDefault') }]
         : [],
-      ...reasoning.efforts.map((effort: ModelReasoningEffort) => ({
+      ...(reasoning.efforts ?? []).map((effort: ModelReasoningEffort) => ({
         key: `effort:${effort.id}`,
         effort: effort.id,
         label: effort.name,
