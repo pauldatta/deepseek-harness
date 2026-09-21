@@ -350,7 +350,8 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
             )
           }
           const open = !adding && editing?.provider === row.entry.provider
-          const credentialConfigured = row.credential?.configured === true
+          const isGoogle = row.entry.provider === 'google' || row.entry.provider === 'gemini'
+          const credentialConfigured = row.credential?.configured === true || isGoogle
           const credentialMissing = !credentialConfigured
             && row.apiKeyEnv !== undefined
             && row.credential?.configured === false

@@ -118,8 +118,10 @@ export const Config: z<ConnectionConfig> = z.object({
  */
 export async function apply(ctx: Context, config?: ConnectionConfig): Promise<void> {
   const recovery = resolveConnectionConfig(config?.recovery)
-  // The Loader resolves schema defaults; hand-built test contexts may pass none.
-  const trustedHosts = config?.trustedHosts ?? []
+  const envTrustedHosts = process.env.DSH_TRUSTED_HOSTS
+    ? process.env.DSH_TRUSTED_HOSTS.split(',').map((s: string) => s.trim()).filter(Boolean)
+    : []
+  const trustedHosts = [...(config?.trustedHosts ?? []), ...envTrustedHosts]
   const cookieMaxAgeDays = config?.cookieMaxAgeDays ?? 30
   const maxRequestBodyBytes = config?.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES
   // Config boundary: a malformed entry fails the load loudly here rather than

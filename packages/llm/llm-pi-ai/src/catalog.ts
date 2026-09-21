@@ -113,6 +113,110 @@ const THINKING_FORMAT_GATE: Record<PiAiThinkingFormat, true> = {
 /** Reasoning-dispatch wire formats a profile may name, most-reached first. */
 export const SUPPORTED_THINKING_FORMATS = Object.keys(THINKING_FORMAT_GATE) as readonly PiAiThinkingFormat[]
 
+/** Default catalog models for Google / Gemini / Vertex AI if not provided by pi-ai builtins. */
+const BUILTIN_GEMINI_MODELS: readonly Model<Api>[] = [
+  {
+    id: 'gemini-3.7-flash',
+    name: 'Gemini 3.7 Flash',
+    api: 'openai-completions',
+    provider: 'google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    input: ['text', 'image'],
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: 'low',
+      low: 'low',
+      medium: 'medium',
+      high: 'high',
+      xhigh: 'high',
+      max: 'high',
+    },
+    compat: {
+      thinkingFormat: 'openai',
+      supportsReasoningEffort: true,
+    },
+    cost: NO_COST,
+  },
+  {
+    id: 'gemini-3.7-flash-001',
+    name: 'Gemini 3.7 Flash (Pinned 001)',
+    api: 'openai-completions',
+    provider: 'google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    input: ['text', 'image'],
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: 'low',
+      low: 'low',
+      medium: 'medium',
+      high: 'high',
+      xhigh: 'high',
+      max: 'high',
+    },
+    compat: {
+      thinkingFormat: 'openai',
+      supportsReasoningEffort: true,
+    },
+    cost: NO_COST,
+  },
+  {
+    id: 'gemini-3.1-pro-preview',
+    name: 'Gemini 3.1 Pro (Preview)',
+    api: 'openai-completions',
+    provider: 'google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    contextWindow: 2_097_152,
+    maxTokens: 65_536,
+    input: ['text', 'image'],
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: 'low',
+      low: 'low',
+      medium: 'medium',
+      high: 'high',
+      xhigh: 'high',
+      max: 'high',
+    },
+    compat: {
+      thinkingFormat: 'openai',
+      supportsReasoningEffort: true,
+    },
+    cost: NO_COST,
+  },
+  {
+    id: 'gemini-3.1-pro',
+    name: 'Gemini 3.1 Pro',
+    api: 'openai-completions',
+    provider: 'google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    contextWindow: 2_097_152,
+    maxTokens: 65_536,
+    input: ['text', 'image'],
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: 'low',
+      low: 'low',
+      medium: 'medium',
+      high: 'high',
+      xhigh: 'high',
+      max: 'high',
+    },
+    compat: {
+      thinkingFormat: 'openai',
+      supportsReasoningEffort: true,
+    },
+    cost: NO_COST,
+  },
+]
+
 /** The output-cap field spellings pi-ai accepts. */
 export type PiAiMaxTokensField = NonNullable<OpenAICompletionsCompat['maxTokensField']>
 
@@ -185,11 +289,26 @@ export function catalogProvider(provider: string): Provider | undefined {
 }
 
 /**
+ * Resolves an available catalog provider, normalizing vendor aliases
+ * (e.g. google/gemini -> google-vertex).
+ */
+export function findAvailableProvider(provider: string): Provider | undefined {
+  const baseProviderName = (provider === 'google' || provider === 'gemini') ? 'google-vertex' : provider
+  return catalogProvider(baseProviderName) ?? catalogProvider(provider)
+}
+
+/**
  * Every provider route the installed pi-ai catalog ships.
  * @returns the catalog provider ids.
  */
 export function catalogProviderIds(): readonly string[] {
-  return getBuiltinProviders()
+  const ids = new Set<string>(getBuiltinProviders())
+  ids.add('google')
+  ids.add('gemini')
+  ids.delete('google-vertex')
+  ids.delete('vertex')
+  ids.delete('deepseek')
+  return [...ids]
 }
 
 /**
@@ -198,6 +317,34 @@ export function catalogProviderIds(): readonly string[] {
  * @returns catalog models by id; empty for a route pi-ai does not ship.
  */
 export function catalogModels(provider: string): Map<string, Model<Api>> {
+  if (
+    provider === 'google' ||
+    provider === 'gemini' ||
+    provider === 'google-ai' ||
+    provider === 'google-vertex' ||
+    provider === 'vertex' ||
+    provider === 'vertex-ai'
+  ) {
+    const defaultApi = 'google-vertex'
+    const defaultBaseUrl = 'https://{location}-aiplatform.googleapis.com'
+
+    const geminiMap = new Map<string, Model<Api>>()
+    for (const model of BUILTIN_GEMINI_MODELS) {
+      const { compat: _compat, ...rest } = model
+      geminiMap.set(model.id, {
+        ...rest,
+        provider,
+        api: defaultApi as Api,
+        baseUrl: defaultBaseUrl,
+        ...model.compat === undefined ? {} : { compat: model.compat },
+      } as Model<Api>)
+    }
+    if (catalogProviders().has(provider)) {
+      const builtin = getBuiltinModels(provider as BuiltinProvider) as Model<Api>[]
+      for (const m of builtin) geminiMap.set(m.id, m)
+    }
+    return geminiMap
+  }
   if (!catalogProviders().has(provider)) return new Map()
   const models = getBuiltinModels(provider as BuiltinProvider) as Model<Api>[]
   return new Map(models.map(model => [model.id, model]))

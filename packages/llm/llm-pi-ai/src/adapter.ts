@@ -61,6 +61,7 @@ import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { toPiContext } from './context.ts'
 import { createModels, getSupportedThinkingLevels } from './models.ts'
 import { toStreamChunks } from './stream.ts'
+import { streamGoogleGenAI } from './google-genai.ts'
 
 /** One resolution's frozen view: the profiles and the collection built from them. */
 interface PiAiSnapshot {
@@ -117,6 +118,12 @@ function profileOptions(
   reasoning: ModelThinkingLevel | undefined,
   apiKey: string | undefined,
 ): SimpleStreamOptions {
+  if (profile.project) {
+    process.env.GOOGLE_CLOUD_PROJECT = profile.project
+  }
+  if (profile.location) {
+    process.env.GOOGLE_CLOUD_LOCATION = profile.location
+  }
   const enabledReasoning: ThinkingLevel | undefined = reasoning === 'off' ? undefined : reasoning
   return {
     ...apiKey === undefined ? {} : { apiKey },
@@ -126,6 +133,19 @@ function profileOptions(
     ...profile.transport === undefined ? {} : { transport: profile.transport },
     ...profile.timeoutMs === undefined ? {} : { timeoutMs: profile.timeoutMs },
     ...profile.websocketConnectTimeoutMs === undefined ? {} : { websocketConnectTimeoutMs: profile.websocketConnectTimeoutMs },
+    onPayload: (params: unknown) => {
+      const p = params as { model?: unknown; config?: { thinkingConfig?: Record<string, unknown> } }
+      const modelId = typeof p?.model === 'string' ? p.model : ''
+      if (modelId.includes('3.7') && p?.config?.thinkingConfig) {
+        const tc = p.config.thinkingConfig
+        if (tc.thinkingLevel === 'MINIMAL' || tc.thinkingLevel === 'THINKING_LEVEL_MINIMAL') {
+          p.config.thinkingConfig = { thinkingBudget: 0 }
+        } else if (tc.thinkingLevel) {
+          p.config.thinkingConfig = { includeThoughts: true, thinkingBudget: -1 }
+        }
+      }
+      return params
+    },
     // The agent recovery layer owns visible attempts; one adapter call is one SDK attempt.
     maxRetries: 0,
   }
@@ -355,6 +375,19 @@ export class PiAiAdapter extends LlmAdapter {
     using watchdog = idleWatchdog(upstream, streamIdleTimeoutMs, 'LLM_STREAM_IDLE_TIMEOUT')
 
     try {
+      if (options.provider === 'google' || options.provider === 'gemini' || options.provider === 'google-vertex' || options.provider === 'vertex') {
+        const stream = streamGoogleGenAI(options, {
+          apiKey,
+          project: profile.project,
+          location: profile.location,
+          resolveAttachments: () => this.config.resolveAttachments?.(),
+        })
+        for await (const chunk of stream) {
+          yield chunk
+        }
+        return
+      }
+
       const containsImage = options.messages.some(message => contentHasImage(message.content))
       if (containsImage && !model.input.includes('image')) {
         throw new LlmError(`pi-ai model "${model.id}" does not support image input`, 'UNSUPPORTED_CONTENT')
