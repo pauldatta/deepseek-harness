@@ -655,8 +655,9 @@ export class SessionManager {
   }
 
   private replaceControlBaseline(baseline: SessionControlBaseline): void {
-
-    for (const [sessionId, block] of Object.entries(baseline.projections)) {
+    if (!baseline) return
+    for (const [sessionId, block] of Object.entries(baseline.projections ?? {})) {
+      if (!block) continue
       const store = this.projectionStore(sessionId as SessionId)
       const asOfSeq = sessionSeqCursor(block.asOfSeq)
       store.seed({ ...block, asOfSeq })
