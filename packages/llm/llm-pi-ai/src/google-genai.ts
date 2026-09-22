@@ -12,9 +12,10 @@ import type { Content, GenerateContentConfig, Part, Tool } from '@google/genai'
 import {
   ToolCallId,
   LlmError,
+  offloadedImageText,
   type ContentBlock,
   type GenerateOptions,
-  type Message,
+  type RequestMessage,
   type StreamChunk,
   type TokenUsage,
   type ToolSchema,
@@ -43,23 +44,48 @@ function sanitizeSurrogates(text: string): string {
 function convertTools(tools: readonly ToolSchema[]): Tool[] {
   return [
     {
-      functionDeclarations: tools.map(tool => ({
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters,
-      })),
+      functionDeclarations: tools
+        .filter(tool => !tool.deferLoading)
+        .map(tool => ({
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+        })),
     },
   ]
 }
 
 function extractToolResultText(blocks: readonly ContentBlock[]): string {
   return blocks
-    .map(b => (b.type === 'text' ? b.text : b.type === 'tool-result' ? extractToolResultText(b.content) : ''))
+    .map(b => (b.type === 'text' ? b.text : ''))
+    .filter(Boolean)
     .join('\n')
 }
 
-async function convertMessages(
-  messages: readonly Message[],
+async function appendImageBlockPart(
+  block: Extract<ContentBlock, { type: 'image' }>,
+  parts: Part[],
+  resolveAttachments?: (() => AttachmentStore | undefined) | undefined,
+): Promise<void> {
+  if (block.offloaded === true) {
+    parts.push({ text: sanitizeSurrogates(offloadedImageText(block.attachment, undefined)) })
+    return
+  }
+  const store = resolveAttachments?.()
+  if (store && block.attachment) {
+    const stored = await store.readImage(block.attachment)
+    const base64 = Buffer.from(stored.data).toString('base64')
+    parts.push({
+      inlineData: {
+        mimeType: stored.ref.mediaType,
+        data: base64,
+      },
+    })
+  }
+}
+
+export async function convertMessages(
+  messages: readonly RequestMessage[],
   resolveAttachments?: (() => AttachmentStore | undefined) | undefined,
 ): Promise<{ contents: Content[]; systemInstruction?: string }> {
   let systemInstruction = ''
@@ -85,6 +111,22 @@ async function convertMessages(
         .join('\n\n')
       if (text) {
         systemInstruction = systemInstruction ? `${systemInstruction}\n\n${text}` : text
+      }
+      continue
+    }
+
+    if (message.role === 'developer') {
+      const text = message.content
+        .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+        .map(b => b.text)
+        .filter(Boolean)
+        .join('\n\n')
+      if (text) {
+        const reminder = sanitizeSurrogates(text).replaceAll('</system-reminder>', '<\\/system-reminder>')
+        contents.push({
+          role: 'user',
+          parts: [{ text: `<system-reminder>\n${reminder}\n</system-reminder>` }],
+        })
       }
       continue
     }
@@ -137,44 +179,48 @@ async function convertMessages(
       continue
     }
 
+    if (message.role === 'tool') {
+      const outputText = extractToolResultText(message.content)
+      let responsePayload: Record<string, unknown>
+      try {
+        const parsed: unknown = JSON.parse(outputText)
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+          responsePayload = parsed as Record<string, unknown>
+        } else {
+          responsePayload = { output: parsed }
+        }
+      } catch {
+        responsePayload = { output: outputText }
+      }
+      const callIdStr = String(message.toolCallId || 'unknown')
+      const toolName = toolCallNames.get(callIdStr) || 'unknown_tool'
+      const parts: Part[] = [
+        {
+          functionResponse: {
+            name: toolName,
+            response: responsePayload,
+          },
+        },
+      ]
+      for (const block of message.content) {
+        if (block.type === 'image') {
+          await appendImageBlockPart(block, parts, resolveAttachments)
+        }
+      }
+      contents.push({
+        role: 'user',
+        parts,
+      })
+      continue
+    }
+
     if (message.role === 'user') {
       const parts: Part[] = []
       for (const block of message.content) {
         if (block.type === 'text') {
           if (block.text) parts.push({ text: sanitizeSurrogates(block.text) })
         } else if (block.type === 'image') {
-          const store = resolveAttachments?.()
-          if (store && block.attachment) {
-            const stored = await store.readImage(block.attachment)
-            const base64 = Buffer.from(stored.data).toString('base64')
-            parts.push({
-              inlineData: {
-                mimeType: stored.ref.mediaType,
-                data: base64,
-              },
-            })
-          }
-        } else if (block.type === 'tool-result') {
-          const outputText = extractToolResultText(block.content)
-          let responsePayload: Record<string, unknown>
-          try {
-            const parsed: unknown = JSON.parse(outputText)
-            if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-              responsePayload = parsed as Record<string, unknown>
-            } else {
-              responsePayload = { output: parsed }
-            }
-          } catch {
-            responsePayload = { output: outputText }
-          }
-          const callIdStr = String(block.toolCallId || 'unknown')
-          const toolName = toolCallNames.get(callIdStr) || 'unknown_tool'
-          parts.push({
-            functionResponse: {
-              name: toolName,
-              response: responsePayload,
-            },
-          })
+          await appendImageBlockPart(block, parts, resolveAttachments)
         }
       }
       if (parts.length > 0) {
@@ -252,7 +298,10 @@ export async function* streamGoogleGenAI(
       : sanitizeSurrogates(options.system)
   }
   if (options.tools && options.tools.length > 0) {
-    config.tools = convertTools(options.tools)
+    const converted = convertTools(options.tools)
+    if (converted[0]?.functionDeclarations && converted[0].functionDeclarations.length > 0) {
+      config.tools = converted
+    }
   }
   if (options.temperature !== undefined) {
     config.temperature = options.temperature
@@ -266,10 +315,14 @@ export async function* streamGoogleGenAI(
 
   // Configure thinking for Gemini 3 models
   const modelLower = options.model.toLowerCase()
-  const isGemini3 = modelLower.includes('gemini-3') || modelLower.includes('3.7') || modelLower.includes('3.1')
-  if (isGemini3) {
+  const isGemini3 = modelLower.includes('gemini-3') || modelLower.includes('3.8') || modelLower.includes('3.7') || modelLower.includes('3.1')
+  if (isGemini3 && options.reasoningEffort !== 'off') {
     const thinkingConfig: { includeThoughts: boolean; thinkingLevel?: ThinkingLevel } = { includeThoughts: true }
-    if (options.reasoningEffort === 'high' || options.reasoningEffort === 'max') {
+    if (
+      options.reasoningEffort === 'high'
+      || options.reasoningEffort === 'xhigh'
+      || options.reasoningEffort === 'max'
+    ) {
       thinkingConfig.thinkingLevel = ThinkingLevel.HIGH
     } else if (options.reasoningEffort === 'low' || options.reasoningEffort === 'minimal') {
       thinkingConfig.thinkingLevel = ThinkingLevel.LOW
@@ -279,17 +332,47 @@ export async function* streamGoogleGenAI(
     config.thinkingConfig = thinkingConfig
   }
 
+  const candidateModels: string[] = [options.model]
+  if (modelLower.includes('3.8-flash')) {
+    candidateModels.push('gemini-3.7-flash', 'gemini-2.5-flash')
+  } else if (modelLower.includes('3.7-flash')) {
+    candidateModels.push('gemini-2.5-flash')
+  }
+
   let stream: AsyncIterable<{
     candidates?: Array<{ content?: { parts?: Part[]; role?: string } }>
     usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number }
-  }>
-  try {
-    stream = await ai.models.generateContentStream({
-      model: options.model,
-      contents,
-      config,
-    })
-  } catch (err: unknown) {
+  }> | undefined
+  let lastErr: unknown
+  for (const candidateModel of candidateModels) {
+    const candidateConfig: GenerateContentConfig = candidateModel.includes('2.5') && config.thinkingConfig
+      ? { ...config, thinkingConfig: { includeThoughts: true } }
+      : config
+    try {
+      stream = await ai.models.generateContentStream({
+        model: candidateModel,
+        contents,
+        config: candidateConfig,
+      })
+      lastErr = undefined
+      break
+    } catch (err: unknown) {
+      lastErr = err
+      const errObj = err as { status?: unknown; code?: unknown; message?: unknown } | null
+      const statusNum = typeof errObj?.status === 'number'
+        ? errObj.status
+        : typeof errObj?.code === 'number'
+          ? errObj.code
+          : undefined
+      const msg = typeof errObj?.message === 'string' ? errObj.message : ''
+      const isNotFound = statusNum === 404 || /not found|NOT_FOUND/i.test(msg)
+      if (!isNotFound || candidateModel === candidateModels[candidateModels.length - 1]) {
+        break
+      }
+    }
+  }
+  if (stream === undefined) {
+    const err = lastErr
     const errObj = err as { status?: unknown; code?: unknown; message?: unknown } | null
     const statusNum = typeof errObj?.status === 'number'
       ? errObj.status

@@ -207,18 +207,24 @@ export function apply(ctx: Context, config: Config): void {
     if (hit !== undefined && hit.length > 0) return assertUsableApiKey(hit, 'llm-pi-ai', ref)
 
     // Check common environment aliases
-    const aliases = provider === 'google' || provider === 'google-vertex'
+    const isGoogleRoute = provider === 'google'
+      || provider === 'gemini'
+      || provider === 'google-vertex'
+      || provider === 'vertex'
+    const aliases = isGoogleRoute
       ? ['GEMINI_API_KEY', 'GOOGLE_API_KEY', 'VERTEX_API_KEY', 'GOOGLE_CLOUD_API_KEY']
       : []
     for (const altRef of aliases) {
       const altHit = credentials !== undefined
         ? (await credentials.resolve(altRef as string as never))?.value
+          ?? launchEnvironmentOf(ctx).get(altRef)?.value
+          ?? process.env[altRef]
         : launchEnvironmentOf(ctx).get(altRef)?.value ?? process.env[altRef]
       if (altHit !== undefined && altHit.length > 0) return assertUsableApiKey(altHit, 'llm-pi-ai', altRef)
     }
 
     // For Google Gemini / Vertex providers with ambient discovery (ADC / gcloud), allow deferring to ambient discovery without failing
-    if (provider === 'google' || provider === 'gemini' || provider === 'google-vertex' || provider === 'vertex') {
+    if (isGoogleRoute) {
       return undefined
     }
 

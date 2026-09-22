@@ -148,7 +148,7 @@ function profileOptions(
     onPayload: (params: unknown) => {
       const p = params as { model?: unknown; config?: { thinkingConfig?: Record<string, unknown> } }
       const modelId = typeof p?.model === 'string' ? p.model : ''
-      if (modelId.includes('3.7') && p?.config?.thinkingConfig) {
+      if ((modelId.includes('3.8') || modelId.includes('3.7')) && p?.config?.thinkingConfig) {
         const tc = p.config.thinkingConfig
         if (tc.thinkingLevel === 'MINIMAL' || tc.thinkingLevel === 'THINKING_LEVEL_MINIMAL') {
           p.config.thinkingConfig = { thinkingBudget: 0 }
@@ -412,16 +412,42 @@ export class PiAiAdapter extends LlmAdapter {
 
     try {
       if (options.provider === 'google' || options.provider === 'gemini' || options.provider === 'google-vertex' || options.provider === 'vertex') {
-        const stream = streamGoogleGenAI(options, {
-          apiKey,
-          project: profile.project,
-          location: profile.location,
-          resolveAttachments: () => this.config.resolveAttachments?.(),
-        })
-        for await (const chunk of stream) {
-          yield chunk
+        const effectiveEffort = options.reasoningEffort
+          ?? (reasoning !== undefined
+            ? ReasoningEffortId(reasoning)
+            : profile.reasoning === 'off'
+              ? ReasoningEffortId('off')
+              : undefined)
+        const iterator = streamGoogleGenAI(
+          {
+            ...options,
+            ...(effectiveEffort !== undefined ? { reasoningEffort: effectiveEffort } : {}),
+            signal: watchdog.signal,
+          },
+          {
+            apiKey,
+            project: profile.project,
+            location: profile.location,
+            resolveAttachments: () => this.config.resolveAttachments?.(),
+          },
+        )[Symbol.asyncIterator]()
+        let exhausted = false
+        try {
+          while (true) {
+            const result = await watchdog.next(iterator)
+            if (result.done) {
+              exhausted = true
+              return
+            }
+            yield result.value
+          }
+        } finally {
+          if (!exhausted) {
+            consumer.abort('pi-ai stream consumer stopped')
+            /* v8 ignore next -- detached drain only rejects while unwinding an abandoned stream. */
+            void iterator.return(undefined).catch(() => {})
+          }
         }
-        return
       }
 
       const containsImage = options.messages.some(message => contentHasImage(message.content))
