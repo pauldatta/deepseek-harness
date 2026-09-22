@@ -248,7 +248,7 @@ function tlsUpgrade(port: number | undefined, path: string, ca: string): Promise
 
 describe('real Loader composition', () => {
   it('accepts one concrete IP literal, keeping an IPv6 zone for listen', () => {
-    for (const host of ['127.0.0.1', '10.1.2.3', '0.1.2.3', '::1', 'fd00::1', '::ffff:10.1.2.3', '::ffff:0.1.2.3', '0:0:0:0:0:0:0:1', 'fe80::1%lo', '::0.0.0.1', '::0.0.0.1%lo', '::127.0.0.1']) {
+    for (const host of ['127.0.0.1', '0.0.0.0', '::', '10.1.2.3', '0.1.2.3', '::1', 'fd00::1', '::ffff:10.1.2.3', '::ffff:0.1.2.3', '0:0:0:0:0:0:0:1', 'fe80::1%lo', '::0.0.0.1', '::0.0.0.1%lo', '::127.0.0.1']) {
       expect(HttpServer.Config({ host, port: 0 }).host).toBe(host)
     }
   })
@@ -258,7 +258,7 @@ describe('real Loader composition', () => {
     // IPv4 any, IPv6 any in long and short forms, IPv4-compatible, and the
     // IPv4-mapped forms of IPv4 any, with or without a zone.
     for (const host of [
-      '0.0.0.0', '::', '::0', '0000::', '0::', '0:0:0:0:0:0:0:0', '::0.0.0.0', '::0.0.0.0%lo', '::%lo',
+      '::0', '0000::', '0::', '0:0:0:0:0:0:0:0', '::0.0.0.0', '::0.0.0.0%lo', '::%lo',
       '::ffff:0.0.0.0', '::ffff:0:0', '::ffff:0000:0000', '0:0:0:0:0:ffff:0:0',
       '0:0:0:0:0:ffff:0.0.0.0', '::ffff:0.0.0.0%eth0',
     ]) {

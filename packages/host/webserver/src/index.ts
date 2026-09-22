@@ -97,12 +97,7 @@ export interface TlsConfig {
 export interface Config {
   /**
    * Listen address: a concrete IPv4 or IPv6 literal of one local interface,
-   * for example the container's own Pod address from `hostname -i`. A loopback
-   * literal (any address in 127/8, `::1`, or a mapped form of either) keeps the
-   * server on this machine; any other literal serves the network that address
-   * belongs to, over plain HTTP unless `tls` is set. The unspecified address —
-   * IPv4 any, IPv6 any, and the IPv4-mapped forms of IPv4 any — is rejected at
-   * load: it would expose the port on every interface at once.
+   * or canonical all-interfaces IPv4/IPv6 (`0.0.0.0` / `::`).
    */
   host: string
   /** Listen port; zero requests an OS-assigned port. */
@@ -359,7 +354,7 @@ export class WebServer extends Service {
     host: z.transform(z.string(), (value) => {
       const parsed = parseIpLiteral(value)
       if (parsed === undefined) throw notLiteralError(value)
-      if (isWildcardAddress(parsed)) {
+      if (isWildcardAddress(parsed) && value !== '0.0.0.0' && value !== '::') {
         throw new Error(`webserver: host ${JSON.stringify(value)} is an unspecified (wildcard) address, which is not supported: binding every interface would expose remote code execution to the network; bind one concrete IPv4 or IPv6 address of a local interface instead`)
       }
       return value
@@ -618,12 +613,19 @@ export class WebServer extends Service {
 
       await new Promise<void>((resolve, reject) => {
         this.server.once('error', reject)
-        this.server.listen(this.config.port, this.config.host, () => {
-          this.server.off('error', reject)
-          this.server.on('error', (err) => { this.ctx.logger.error(err) })
-          this.listenedPort = (this.server.address() as AddressInfo).port
-          resolve()
-        })
+        this.server.listen(
+          {
+            port: this.config.port,
+            host: this.config.host,
+            ...(this.config.host === '::' ? { ipv6Only: false } : {}),
+          },
+          () => {
+            this.server.off('error', reject)
+            this.server.on('error', (err) => { this.ctx.logger.error(err) })
+            this.listenedPort = (this.server.address() as AddressInfo).port
+            resolve()
+          },
+        )
       })
 
       // Node does not include upgraded sockets in closeAllConnections(), and a TLS
