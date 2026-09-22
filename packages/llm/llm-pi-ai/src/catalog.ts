@@ -116,6 +116,56 @@ export const SUPPORTED_THINKING_FORMATS = Object.keys(THINKING_FORMAT_GATE) as r
 /** Default catalog models for Google / Gemini / Vertex AI if not provided by pi-ai builtins. */
 const BUILTIN_GEMINI_MODELS: readonly Model<Api>[] = [
   {
+    id: 'gemini-3.8-flash',
+    name: 'Gemini 3.8 Flash',
+    api: 'openai-completions',
+    provider: 'google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    input: ['text', 'image'],
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: 'low',
+      low: 'low',
+      medium: 'medium',
+      high: 'high',
+      xhigh: 'high',
+      max: 'high',
+    },
+    compat: {
+      thinkingFormat: 'openai',
+      supportsReasoningEffort: true,
+    },
+    cost: NO_COST,
+  },
+  {
+    id: 'gemini-3.8-flash-001',
+    name: 'Gemini 3.8 Flash (Pinned 001)',
+    api: 'openai-completions',
+    provider: 'google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    input: ['text', 'image'],
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: 'low',
+      low: 'low',
+      medium: 'medium',
+      high: 'high',
+      xhigh: 'high',
+      max: 'high',
+    },
+    compat: {
+      thinkingFormat: 'openai',
+      supportsReasoningEffort: true,
+    },
+    cost: NO_COST,
+  },
+  {
     id: 'gemini-3.7-flash',
     name: 'Gemini 3.7 Flash',
     api: 'openai-completions',
@@ -341,7 +391,9 @@ export function catalogModels(provider: string): Map<string, Model<Api>> {
     }
     if (catalogProviders().has(provider)) {
       const builtin = getBuiltinModels(provider as BuiltinProvider) as Model<Api>[]
-      for (const m of builtin) geminiMap.set(m.id, m)
+      for (const m of builtin) {
+        if (!geminiMap.has(m.id)) geminiMap.set(m.id, m)
+      }
     }
     return geminiMap
   }

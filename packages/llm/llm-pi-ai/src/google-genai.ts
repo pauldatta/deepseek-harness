@@ -266,7 +266,7 @@ export async function* streamGoogleGenAI(
 
   // Configure thinking for Gemini 3 models
   const modelLower = options.model.toLowerCase()
-  const isGemini3 = modelLower.includes('gemini-3') || modelLower.includes('3.7') || modelLower.includes('3.1')
+  const isGemini3 = modelLower.includes('gemini-3') || modelLower.includes('3.8') || modelLower.includes('3.7') || modelLower.includes('3.1')
   if (isGemini3) {
     const thinkingConfig: { includeThoughts: boolean; thinkingLevel?: ThinkingLevel } = { includeThoughts: true }
     if (options.reasoningEffort === 'high' || options.reasoningEffort === 'max') {
@@ -279,17 +279,47 @@ export async function* streamGoogleGenAI(
     config.thinkingConfig = thinkingConfig
   }
 
+  const candidateModels: string[] = [options.model]
+  if (modelLower.includes('3.8-flash')) {
+    candidateModels.push('gemini-3.7-flash', 'gemini-2.5-flash')
+  } else if (modelLower.includes('3.7-flash')) {
+    candidateModels.push('gemini-2.5-flash')
+  }
+
   let stream: AsyncIterable<{
     candidates?: Array<{ content?: { parts?: Part[]; role?: string } }>
     usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number }
-  }>
-  try {
-    stream = await ai.models.generateContentStream({
-      model: options.model,
-      contents,
-      config,
-    })
-  } catch (err: unknown) {
+  }> | undefined
+  let lastErr: unknown
+  for (const candidateModel of candidateModels) {
+    const candidateConfig: GenerateContentConfig = candidateModel.includes('2.5') && config.thinkingConfig
+      ? { ...config, thinkingConfig: { includeThoughts: true } }
+      : config
+    try {
+      stream = await ai.models.generateContentStream({
+        model: candidateModel,
+        contents,
+        config: candidateConfig,
+      })
+      lastErr = undefined
+      break
+    } catch (err: unknown) {
+      lastErr = err
+      const errObj = err as { status?: unknown; code?: unknown; message?: unknown } | null
+      const statusNum = typeof errObj?.status === 'number'
+        ? errObj.status
+        : typeof errObj?.code === 'number'
+          ? errObj.code
+          : undefined
+      const msg = typeof errObj?.message === 'string' ? errObj.message : ''
+      const isNotFound = statusNum === 404 || /not found|NOT_FOUND/i.test(msg)
+      if (!isNotFound || candidateModel === candidateModels[candidateModels.length - 1]) {
+        break
+      }
+    }
+  }
+  if (stream === undefined) {
+    const err = lastErr
     const errObj = err as { status?: unknown; code?: unknown; message?: unknown } | null
     const statusNum = typeof errObj?.status === 'number'
       ? errObj.status

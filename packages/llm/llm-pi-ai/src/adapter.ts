@@ -136,7 +136,7 @@ function profileOptions(
     onPayload: (params: unknown) => {
       const p = params as { model?: unknown; config?: { thinkingConfig?: Record<string, unknown> } }
       const modelId = typeof p?.model === 'string' ? p.model : ''
-      if (modelId.includes('3.7') && p?.config?.thinkingConfig) {
+      if ((modelId.includes('3.8') || modelId.includes('3.7')) && p?.config?.thinkingConfig) {
         const tc = p.config.thinkingConfig
         if (tc.thinkingLevel === 'MINIMAL' || tc.thinkingLevel === 'THINKING_LEVEL_MINIMAL') {
           p.config.thinkingConfig = { thinkingBudget: 0 }

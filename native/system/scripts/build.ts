@@ -5,6 +5,7 @@
  */
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 
@@ -32,7 +33,13 @@ const host = `${process.platform}-${process.arch}`
 const libc = process.platform === 'linux'
   ? ((process.report.getReport() as { header: { glibcVersionRuntime?: string } }).header.glibcVersionRuntime ? 'glibc' : 'musl')
   : undefined
-const headers = resolve(dirname(process.execPath), '../include/node')
+const defaultHeaders = resolve(dirname(process.execPath), '../include/node')
+const gypHeaders = join(homedir(), '.cache', 'node-gyp', process.versions.node, 'include', 'node')
+const headers = existsSync(join(defaultHeaders, 'node_api.h'))
+  ? defaultHeaders
+  : existsSync(join(gypHeaders, 'node_api.h'))
+    ? gypHeaders
+    : defaultHeaders
 let built = 0
 
 for (const name of readdirSync(join(root, 'packages')).sort()) {
